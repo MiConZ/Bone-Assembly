@@ -1,0 +1,38 @@
+# Unity caches and local editor state
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+/[Bb]uild/
+/[Bb]uilds/
+
+# Local recordings, previews and downloaded development tools
+/output/
+/tmp/
+
+# IDE-generated files
+/.vs/
+/.vscode/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.opendb
+*.VC.db
+
+# Crash reports and OS metadata
+sysinfo.txt
+*.stackdump
+*.crash
+.DS_Store
+Thumbs.db
+
+# Keep Assets (including .meta and Generated meshes), Packages and ProjectSettings.
