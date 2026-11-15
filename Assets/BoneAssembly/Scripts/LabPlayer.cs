@@ -103,7 +103,7 @@ namespace BoneAssembly
             if(desktop&&!desktop.held)desktop=null;
             if(mouse.leftButton.wasPressedThisFrame){
                 // Screen-space controls consume clicks in their own rectangles.
-                float scale=Mathf.Max(.75f,Screen.height/900f);var m=mouse.position.ReadValue();bool overPanel=m.x<310*scale&&m.y>Screen.height-650*scale;
+                float scale=Mathf.Max(.75f,Screen.height/900f);var m=mouse.position.ReadValue();bool overPanel=game.desktopUI ? UnityEngine.EventSystems.EventSystem.current&&UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject() : m.x<310*scale&&m.y>Screen.height-650*scale;
                 if(!overPanel){if(desktop){game.TryPlace(desktop);desktop=null;}else desktop=game.Grab(ray,2,out depth);}
             }
             if(desktop){depth=Mathf.Clamp(depth+mouse.scroll.ReadValue().y*.001f,.25f,3.5f);desktop.transform.position=ray.GetPoint(depth);

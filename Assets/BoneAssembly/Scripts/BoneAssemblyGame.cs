@@ -11,6 +11,20 @@ namespace BoneAssembly
 
     public class BoneAssemblyGame : MonoBehaviour
     {
+        [Header("Editable game data / ปรับค่าที่ asset นี้")]
+        public BoneGameSettings settings;
+        [Tooltip("Prepared scene: preserves manually edited tray transforms.")] public bool authoringPrepared;
+        public BoneDesktopUI desktopUI;
+        [Header("World UI / ข้อความสถานะใน VR")]
+        [Range(20,80)] public int feedbackColumns = 38;
+        public Transform FindNamed(string objectName) => GetComponentsInChildren<Transform>(true).FirstOrDefault(t=>t.name==objectName);
+        public void ApplySettings()
+        {
+            if(!settings)return;
+            assignmentDuration=settings.assignmentSeconds; startSeated=settings.startSeated;
+            headSnapDistance=settings.headSnapDistance; handSnapDistance=settings.handSnapDistance;
+            var player=GetComponentInChildren<LabPlayer>(true);if(player)player.holdDistance=settings.holdDistance;
+        }
         public const string Version = "1.0";
         public List<BonePiece> pieces = new List<BonePiece>();
         public string[] stages = { "HAND", "UPPER LIMB", "FOOT", "LOWER LIMB", "FULL BODY" };
@@ -43,6 +57,7 @@ namespace BoneAssembly
 
         void Awake()
         {
+            ApplySettings();
             seated=startSeated;
             if (transform.childCount == 0) BuildRoom();
             else Bind();
@@ -53,12 +68,12 @@ namespace BoneAssembly
         public void CalibrateSeatedPose(Vector3 trackedPosition,Quaternion trackedRotation)
         {
             rig.rotation=Quaternion.Euler(0,-trackedRotation.eulerAngles.y,0);
-            rig.position=SeatedAnchor+Vector3.up*SeatedEyeHeight-rig.rotation*trackedPosition;
+            rig.position=(settings?settings.seatedAnchor:SeatedAnchor)+Vector3.up*(settings?settings.seatedEyeHeight:SeatedEyeHeight)-rig.rotation*trackedPosition;
         }
         public void ResetDesktopSeat()
         {
-            rig.SetPositionAndRotation(SeatedAnchor,Quaternion.identity);
-            playerCamera.transform.localPosition=Vector3.up*SeatedEyeHeight;
+            rig.SetPositionAndRotation(settings?settings.seatedAnchor:SeatedAnchor,Quaternion.identity);
+            playerCamera.transform.localPosition=Vector3.up*(settings?settings.seatedEyeHeight:SeatedEyeHeight);
             playerCamera.fieldOfView=88;
             playerCamera.transform.LookAt(AssemblyViewCenter);
         }
@@ -68,9 +83,9 @@ namespace BoneAssembly
         {
             pieces = GetComponentsInChildren<BonePiece>(true).Where(p=>!p.retired).ToList();
             BoneWorkbenchLayout.Simplify(this);
-            BoneWorkbenchLayout.ResizeTrays(this);
-            board = transform.Find("StatusBoard")?.GetComponent<TextMesh>();
-            feedback = transform.Find("Feedback")?.GetComponent<TextMesh>();
+            if(!authoringPrepared)BoneWorkbenchLayout.ResizeTrays(this);
+            board = FindNamed("StatusBoard")?.GetComponent<TextMesh>();
+            feedback = FindNamed("Feedback")?.GetComponent<TextMesh>();
             playerCamera = GetComponentInChildren<Camera>(); rig = playerCamera.transform.parent;
             audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
             RepairSurfacePlacement();
@@ -268,9 +283,9 @@ namespace BoneAssembly
         {
             return index==3 || (index==0&&region=="AXIAL") || (index==1&&(region=="UPPER LIMB"||region=="HAND")) || (index==2&&(region=="LOWER LIMB"||region=="FOOT"));
         }
-        void RefreshAssignmentControls()
+        public void RefreshAssignmentControls()
         {
-            if(!assignmentMenu){var existing=transform.Find("Assignment selection");if(existing)assignmentMenu=existing.gameObject;}
+            if(!assignmentMenu){var existing=FindNamed("Assignment selection");if(existing)assignmentMenu=existing.gameObject;}
             if(assignmentMenu==null){
                 assignmentMenu=new GameObject("Assignment selection");assignmentMenu.transform.SetParent(transform,false);
                 var red=Mat("Assignment menu coral",new Color(1,.24f,.27f));
@@ -287,21 +302,21 @@ namespace BoneAssembly
             assignmentMenu.SetActive(selectingAssignment);
             if(board)board.gameObject.SetActive(!selectingAssignment);
             if(feedback)feedback.gameObject.SetActive(!selectingAssignment);
-            var subtitle=transform.Find("Subtitle");if(subtitle)subtitle.gameObject.SetActive(!selectingAssignment);
-            if(subtitle&&seated)subtitle.GetComponent<TextMesh>().text="SEATED / GRIP: PICK UP / TRIGGER: AIM AND PLACE";
+            var subtitle=FindNamed("Subtitle");if(subtitle)subtitle.gameObject.SetActive(!selectingAssignment);
+            if(subtitle&&seated)subtitle.GetComponent<TextMesh>().text=settings?settings.seatedInstructions:"SEATED / GRIP: PICK UP / TRIGGER: AIM AND PLACE";
             foreach(string command in new[]{"mode","hint","reset","next"}){
-                var button=transform.Find("Button "+command);var label=transform.Find("Label "+command);
+                var button=FindNamed("Button "+command);var label=FindNamed("Label "+command);
                 if(button)button.gameObject.SetActive(!selectingAssignment);if(label)label.gameObject.SetActive(!selectingAssignment);
             }
             for(int i=0;i<5;i++){
-                var button=transform.Find("Button stage:"+i);var label=transform.Find("Label stage:"+i);
+                var button=FindNamed("Button stage:"+i);var label=FindNamed("Label stage:"+i);
                 if(button)button.gameObject.SetActive(!selectingAssignment);if(label)label.gameObject.SetActive(!selectingAssignment);
                 if(button)button.GetComponent<LabAction>().command=assignmentMode?(i<4?"assignment:"+i:"test"):"stage:"+i;
-                if(label)label.GetComponent<TextMesh>().text=assignmentMode?(i<4?"ASSIGNMENT "+(i+1):"TEST MODE"):stages[i];
+                if(label)label.GetComponent<TextMesh>().text=assignmentMode?(i<4?(settings?settings.assignmentPrefix:"ASSIGNMENT")+" "+(i+1):(settings?settings.testLabel:"TEST MODE")):stages[i];
             }
-            var mode=transform.Find("Label mode");if(mode)mode.GetComponent<TextMesh>().text="ASSIGNMENT / TEST";
-            var seat=transform.Find("Label seated");if(seat)seat.GetComponent<TextMesh>().text="RECENTER SEAT";
-            var hint=transform.Find("Label hint");if(hint){hint.GetComponent<TextMesh>().text=completed?"REVIEW":"HINT";}
+            var mode=FindNamed("Label mode");if(mode)mode.GetComponent<TextMesh>().text=settings?settings.modeLabel:"ASSIGNMENT / TEST";
+            var seat=FindNamed("Label seated");if(seat)seat.GetComponent<TextMesh>().text=settings?settings.recenterLabel:"RECENTER SEAT";
+            var hint=FindNamed("Label hint");if(hint){hint.GetComponent<TextMesh>().text=settings?(completed?settings.reviewLabel:settings.hintLabel):(completed?"REVIEW":"HINT");}
         }
         public void BeginAssignment(int index)
         {
@@ -386,6 +401,7 @@ namespace BoneAssembly
         public void ShowBoneInformation(BonePiece piece)
         {
             var display=playerCamera.GetComponent<BoneLearningDisplay>()??playerCamera.gameObject.AddComponent<BoneLearningDisplay>();
+            display.settings=settings;
             display.Show(piece);
         }
         public bool InteractWithRay(Ray pointer)
@@ -438,7 +454,7 @@ namespace BoneAssembly
                 case "mode":assignmentMode=!assignmentMode;practice=false;if(assignmentMode)ShowAssignmentMenu();else StartStage(1);RefreshAssignmentControls();break;
                 case "hint":if(completed){ReviewPlacedBones();break;}if(!practice){message="Hints are disabled in exam mode.";break;}var p=ActivePieces.FirstOrDefault(a=>!a.placed&&a.gameObject.activeSelf);if(p!=null){hints++;foreach(var r in p.ghost.GetComponentsInChildren<Renderer>())r.sharedMaterial=success;message="HINT  /  "+p.label+" : match the lit blueprint.";}break;
                 case "seated":seated=true;rig.GetComponent<LabPlayer>()?.RecenterSeat();message="SEATED / View recentered. Grip: pick up. Trigger: aim and place.";break;
-                case "text":float oldScale=textScale;textScale=textScale<1.2f?1.35f:1;foreach(var label in GetComponentsInChildren<TextMesh>())label.characterSize*=textScale/oldScale;break;
+                case "text":float oldScale=textScale;textScale=textScale<1.2f?1.35f:1;foreach(var label in GetComponentsInChildren<TextMesh>())label.characterSize*=textScale/oldScale;if(desktopUI)foreach(var label in desktopUI.GetComponentsInChildren<UnityEngine.UI.Text>(true))label.fontSize=Mathf.RoundToInt(label.fontSize*textScale/oldScale);break;
                 case "sound":soundEnabled=!soundEnabled;break;
             }
             UpdateBoard();
@@ -471,7 +487,7 @@ namespace BoneAssembly
             int count=ActivePieces.Count(),correct=ActivePieces.Count(p=>p.placed);float acc=correct+mistakes==0?100:100f*correct/(correct+mistakes);
             if(board)board.text=selectingAssignment?"SELECT ASSIGNMENT 1 - 4\n10 MINUTES / ASSEMBLE BEFORE TIME RUNS OUT":$"{SessionName} / {(assignmentMode?"ASSIGNMENT MODE":"TEST MODE")}\n{correct:00} / {count:00} ASSEMBLED     {Mathf.FloorToInt(RemainingTime/60):00}:{Mathf.FloorToInt(RemainingTime%60):00}     {acc:0}% ACCURACY";
             if(board){if(completed||lost)board.text="END GAME / "+(completed?"WIN":"LOSE")+"\n"+board.text;board.color=lost?new Color(1,.35f,.3f):completed?new Color(.3f,1,.65f):Color.white;}
-            if(feedback){feedback.text=message;feedback.characterSize=.01155f*textScale;}
+            if(feedback){feedback.text=BoneEducation.Wrap(message,feedbackColumns);if(!authoringPrepared)feedback.characterSize=.01155f*textScale;}
         }
         void Tone(float frequency,float duration,float volume=.15f)
         {
@@ -481,7 +497,7 @@ namespace BoneAssembly
         }
         void OnGUI()
         {
-            if(UnityEngine.XR.XRSettings.isDeviceActive)return;
+            if(desktopUI||UnityEngine.XR.XRSettings.isDeviceActive)return;
             float scale=Mathf.Max(.75f,Screen.height/900f);GUI.matrix=Matrix4x4.Scale(Vector3.one*scale);
             var style=new GUIStyle(GUI.skin.box){fontSize=15,alignment=TextAnchor.UpperLeft,padding=new RectOffset(20,20,16,16)};
             GUI.Box(new Rect(20,20,280,400),"B O N E  A S S E M B L Y\nOPERATING THEATRE  /  04",style);

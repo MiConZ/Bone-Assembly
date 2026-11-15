@@ -105,6 +105,10 @@ namespace BoneAssembly.Editor
                 else if(command=="verifyhead")VerifyHeadAssist();
                 else if(command=="verifyworkbench")VerifyWorkbenchAndLearning();
                 else if(command=="verifyreview")VerifyReviewAndSnap();
+                else if(command=="prepareeditable")BoneAuthoringSetup.Prepare();
+                else if(command=="verifyeditable")BoneAuthoringSetup.Verify();
+                else if(command=="fixvrpanels")BoneAuthoringSetup.FixVRPanels();
+                else if(command=="verifyvrpanels")BoneAuthoringSetup.VerifyVRPanels();
             }catch(Exception e){File.WriteAllText("tmp/verification-result.txt",e.ToString());Debug.LogException(e);}
         }
         static void Polish()

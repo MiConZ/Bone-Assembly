@@ -2,6 +2,8 @@
 
 โปรเจกต์ Unity 6000.5.9f1 / Universal Render Pipeline สำหรับฝึกประกอบกระดูกในห้องผ่าตัด
 
+การแก้ค่าตั้งเกม ข้อมูลกระดูก UI และหมวด Hierarchy: อ่าน [คู่มือแก้เกม](EDITING-GUIDE.md) เริ่มที่ `Configuration/BoneGameSettings.asset` หรือเลือกรากฉากแล้วกด **Open Game Settings**
+
 ## เปิดทดลอง
 
 1. เปิด Scene `Assets/Scenes/BoneAssemblyVR.unity`

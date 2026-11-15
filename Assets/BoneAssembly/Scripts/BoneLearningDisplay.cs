@@ -4,7 +4,9 @@ namespace BoneAssembly
 {
     public class BoneLearningDisplay : MonoBehaviour
     {
-        GameObject panel;TextMesh title,english,body;BonePiece selected;float shown;
+        [Header("Editable scene references")] public GameObject panel; public TextMesh title,english,body;
+        public BoneGameSettings settings;
+        BonePiece selected;float shown;
         Font learningFont;
         public const float DisplayDuration=4f;
         public bool IsVisible => panel&&panel.activeSelf;
@@ -12,7 +14,8 @@ namespace BoneAssembly
         public void Show(BonePiece piece)
         {
             if(!panel)CreatePanel();
-            selected=piece;shown=Time.time;var card=BoneEducation.Get(piece);
+            if(!learningFont&&title)learningFont=title.font;
+            selected=piece;shown=Time.time;var card=settings?settings.Information(piece):BoneEducation.Get(piece);
             title.text=BoneEducation.Wrap(card.ThaiName,30);
             string englishName=card.EnglishName;int details=englishName.IndexOf(" (");if(details>=0)englishName=englishName.Substring(0,details);
             english.text=BoneEducation.Wrap(englishName,36);
@@ -24,13 +27,13 @@ namespace BoneAssembly
             if(learningFont){learningFont.RequestCharactersInTexture(title.text,72);learningFont.RequestCharactersInTexture(english.text+body.text,64);SyncFontTexture();}
             panel.SetActive(true);
         }
-        void CreatePanel()
+        public void CreatePanel()
         {
             var existing=transform.Find("Bone learning card");if(existing)Destroy(existing.gameObject);
             panel=new GameObject("Bone learning card");panel.transform.SetParent(transform,false);
-            panel.transform.localPosition=new Vector3(.82f,-.03f,1.3f);panel.transform.localScale=Vector3.one*1.25f;
+            panel.transform.localPosition=settings?settings.cardPosition:new Vector3(.82f,-.03f,1.3f);panel.transform.localScale=Vector3.one*(settings?settings.cardScale:1.25f);
             var backing=GameObject.CreatePrimitive(PrimitiveType.Cube);backing.name="Information background";backing.transform.SetParent(panel.transform,false);backing.transform.localScale=new Vector3(.84f,.62f,.008f);
-            var collider=backing.GetComponent<Collider>();collider.enabled=false;Destroy(collider);
+            var collider=backing.GetComponent<Collider>();collider.enabled=false;if(Application.isPlaying)Destroy(collider);else DestroyImmediate(collider);
             var material=new Material(Shader.Find("BoneAssembly/LearningPanelOverlay")){name="Learning card background",color=new Color(.018f,.045f,.06f,.98f),renderQueue=3990};backing.GetComponent<Renderer>().sharedMaterial=material;
             var font=Resources.Load<Font>("Fonts/Sarabun-Regular");
             learningFont=font;
@@ -47,7 +50,7 @@ namespace BoneAssembly
         }
         void SyncFontTexture(){if(!learningFont)return;foreach(var text in new[]{title,english,body})if(text)text.GetComponent<Renderer>().sharedMaterial.mainTexture=learningFont.material.mainTexture;}
         void Update(){if(panel&&panel.activeSelf)SyncFontTexture();UpdateVisibility(Time.time);}
-        public void UpdateVisibility(float now){if(panel&&now-shown>=DisplayDuration)panel.SetActive(false);}
+        public void UpdateVisibility(float now){if(panel&&now-shown>=(settings?settings.informationSeconds:DisplayDuration))panel.SetActive(false);}
         public void Clear(){selected=null;if(panel)panel.SetActive(false);}
     }
 }
