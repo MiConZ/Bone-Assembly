@@ -248,170 +248,38 @@ namespace BoneAssembly.Editor
         [MenuItem("Bone Assembly/Verify Surface Clearance (Play Mode)")]
         public static void VerifySurfacePlacement()
         {
-            if(!EditorApplication.isPlaying)throw new Exception("Play mode is required.");
-            var game=UnityEngine.Object.FindAnyObjectByType<BoneAssemblyGame>();game.Bind();game.verificationMode=true;
-            game.assignmentMode=false;game.practice=true;game.StartStage(4);
-            var surfaces=game.GetComponentsInChildren<Renderer>(true).Where(r=>r.name=="Sterile drape"||r.name=="Tray sterile lining").ToArray();
-            var bed=surfaces.First(r=>r.name=="Sterile drape").bounds;
-            Action<BonePiece> checkAbove=(p)=>{
-                var bounds=BoneSurfacePlacement.MeshBounds(p.gameObject);
-                foreach(var surface in surfaces)if(BoneSurfacePlacement.OverlapsTop(bounds,surface.bounds)&&bounds.min.y<surface.bounds.max.y+.007f)throw new Exception("Surface intersection: "+p.label);
-            };
-            foreach(var p in game.pieces){
-                p.transform.SetPositionAndRotation(p.target,p.targetRotation);checkAbove(p);
-                p.transform.SetPositionAndRotation(p.home,p.homeRotation);checkAbove(p);
-                p.transform.SetPositionAndRotation(new Vector3(0,.5f,.25f),Quaternion.Euler(35,67,48));game.ConstrainHeldPiece(p);checkAbove(p);
-                p.transform.SetPositionAndRotation(p.target+Vector3.one,Quaternion.Euler(0,90,0));
-                if(game.TryPlace(p))throw new Exception("Invalid placement accepted.");checkAbove(p);
-                if(Vector3.Distance(p.transform.position,p.home)>.001f)throw new Exception("Return to tray failed.");
-            }
-            var targets=game.pieces.Select(p=>p.target).ToArray();game.RepairSurfacePlacement();game.RepairSurfacePlacement();
-            for(int i=0;i<targets.Length;i++)if(Vector3.Distance(targets[i],game.pieces[i].target)>.0001f)throw new Exception("Surface repair applied twice.");
-            game.StartStage(1);game.verificationMode=false;
-            CaptureTo("output/SurfaceClearance-Fixed.png");
-            File.WriteAllText("tmp/surface-verification.txt","PASS: all "+game.pieces.Count+" teaching units above bed at target and above supporting surfaces on tray; rotated held pieces cannot sink; failed placements return above tray; repeated repairs do not accumulate height. Assembly lift: "+game.assemblyLift.ToString("F6")+" m.");
+            if(!EditorApplication.isPlaying)throw new Exception("Play Mode required.");
+            BoneComfortVerification.Start();
         }
         [MenuItem("Bone Assembly/Verify Seated Play (Play Mode)")]
         public static void VerifySeatedPlay()
         {
-            if(!EditorApplication.isPlaying)throw new Exception("Play mode is required.");
-            var game=UnityEngine.Object.FindAnyObjectByType<BoneAssemblyGame>();game.Bind();game.verificationMode=true;
-            if(!game.seated)throw new Exception("Game did not start in seated mode.");
-            foreach(float height in new[]{0f,.95f,1.2f,1.45f})foreach(float yaw in new[]{-140f,0f,75f}){
-                Vector3 tracked=new Vector3(.8f,height,-.6f);Quaternion rotation=Quaternion.Euler(8,yaw,0);
-                game.CalibrateSeatedPose(tracked,rotation);
-                Vector3 actual=game.rig.TransformPoint(tracked);
-                if(Vector3.Distance(actual,BoneAssemblyGame.SeatedAnchor+Vector3.up*BoneAssemblyGame.SeatedEyeHeight)>.001f)throw new Exception("Seated calibration failed.");
-                Vector3 forward=game.rig.rotation*rotation*Vector3.forward;
-                if(Vector3.Angle(Vector3.ProjectOnPlane(forward,Vector3.up),Vector3.forward)>.1f)throw new Exception("Seated facing failed.");
-                if(Mathf.Abs(Vector3.Distance(game.rig.TransformPoint(tracked+Vector3.up*.08f),actual)-.08f)>.001f)throw new Exception("Natural head movement was lost.");
-            }
-            game.ResetDesktopSeat();Vector3 seat=game.rig.position;Quaternion seatRotation=game.rig.rotation;
-            game.BeginAssignment(3);
-            Vector3 hand=BoneAssemblyGame.SeatedAnchor+new Vector3(.18f,1.3f,.15f);
-            foreach(var piece in game.ActivePieces.ToArray()){
-                if(Vector3.Distance(hand,piece.target)>4)throw new Exception("Target out of seated reach: "+piece.label);
-                piece.gameObject.SetActive(true);piece.held=true;piece.owner=0;piece.transform.rotation=piece.targetRotation;
-                Vector3 aim=piece.IsHead||piece.IsHand?BoneSurfacePlacement.MeshBounds(piece.ghost).center:piece.target;
-                if(!game.TryPlaceFromRay(piece,new Ray(hand,(aim-hand).normalized)))throw new Exception("Seated placement rejected: "+piece.label);
-            }
-            if(!game.completed||Vector3.Distance(seat,game.rig.position)>.001f||Quaternion.Angle(seatRotation,game.rig.rotation)>.001f)throw new Exception("Completing the skeleton required locomotion.");
-            game.BeginAssignment(3);var first=game.ActivePieces.First();first.held=true;first.transform.rotation=Quaternion.Euler(0,90,0);
-            if(game.TryPlaceFromRay(first,new Ray(hand,(first.target-hand).normalized)))throw new Exception("Remote placement bypassed rotation check.");
-            first.held=true;if(game.TryPlaceFromRay(first,new Ray(hand,Vector3.up))||!first.held)throw new Exception("Invalid pointer did not preserve held piece.");
-            first.held=false;game.BeginAssignment(0);game.verificationMode=false;
-            CaptureTo("output/Seated-Play.png");
-            File.WriteAllText("tmp/seated-verification.txt","PASS: seated calibration at four tracked heights and three headings; natural head movement preserved; all "+game.pieces.Count+" units placed from one fixed seat within 4m; rotation validation retained; invalid pointer keeps bone held. Quest hardware not tested.");
+            if(!EditorApplication.isPlaying)throw new Exception("Play Mode required.");
+            BoneComfortVerification.Start();
         }
         [MenuItem("Bone Assembly/Verify Centered Assembly View (Play Mode)")]
         public static void VerifyAssemblyView()
         {
-            if(!EditorApplication.isPlaying)EditorSceneManager.OpenScene(ScenePath);
-            var game=UnityEngine.Object.FindAnyObjectByType<BoneAssemblyGame>();game.Bind();game.ResetDesktopSeat();game.BeginAssignment(3);game.AdvanceSession(1);
-            var camera=game.playerCamera;var center=camera.WorldToViewportPoint(game.AssemblyViewCenter);
-            if(Vector2.Distance(new Vector2(center.x,center.y),Vector2.one*.5f)>.001f)throw new Exception("Skeleton is not centered in view.");
-            foreach(var piece in game.pieces){
-                var bounds=BoneSurfacePlacement.MeshBounds(piece.ghost);
-                for(int i=0;i<8;i++){
-                    var world=bounds.center+Vector3.Scale(bounds.extents,new Vector3((i&1)==0?-1:1,(i&2)==0?-1:1,(i&4)==0?-1:1));
-                    var point=camera.WorldToViewportPoint(world);
-                    if(point.z<=0||point.x<0||point.x>1||point.y<0||point.y>1)throw new Exception("Skeleton cropped: "+piece.label+" "+point);
-                }
-            }
-            CaptureTo("output/Centered-Above-Skeleton.png");
-            File.WriteAllText("tmp/view-verification.txt","PASS: assembly center projects to screen center; all "+game.pieces.Count+" teaching units fit inside the default camera frame. VR keeps natural headset rotation.");
+            if(!EditorApplication.isPlaying)throw new Exception("Play Mode required.");
+            BoneComfortVerification.Start();
         }
-        [MenuItem("Bone Assembly/Verify Head Placement Assist (Play Mode)")]
+        [MenuItem("Bone Assembly/Verify Manual Placement (Play Mode)")]
         public static void VerifyHeadAssist()
         {
-            if(!EditorApplication.isPlaying)throw new Exception("Play mode is required.");
-            var game=UnityEngine.Object.FindAnyObjectByType<BoneAssemblyGame>();game.Bind();game.verificationMode=true;game.BeginAssignment(3);
-            var head=game.ActivePieces.First(p=>p.IsHead);
-            head.transform.rotation=Quaternion.Euler(50,170,70);
-            Vector3 center=BoneSurfacePlacement.MeshBounds(head.ghost).center;
-            head.transform.position+=center+Vector3.right*.18f-BoneSurfacePlacement.MeshBounds(head.gameObject).center;
-            if(!game.TryPlace(head)||Quaternion.Angle(head.transform.rotation,head.targetRotation)>.001f)throw new Exception("Head did not align automatically.");
-            game.BeginAssignment(3);head.held=true;head.transform.rotation=Quaternion.Euler(80,150,30);
-            Vector3 pointer=new Vector3(0,1.8f,-.1f);
-            if(!game.TryPlaceFromRay(head,new Ray(pointer,(center+Vector3.right*.18f-pointer).normalized)))throw new Exception("Remote head assist failed.");
-            game.BeginAssignment(3);head.transform.rotation=head.targetRotation;head.transform.position=head.target+Vector3.right*.5f;
-            if(game.TryPlace(head))throw new Exception("Head accepted too far away.");
-            var body=game.ActivePieces.First(p=>!p.IsHead);body.transform.SetPositionAndRotation(body.target,Quaternion.Euler(0,90,0));
-            if(game.TryPlace(body))throw new Exception("Body rotation validation changed.");
-            game.BeginAssignment(3);game.verificationMode=false;
-            File.WriteAllText("tmp/head-verification.txt","PASS: head within 18cm snaps and auto-orients from arbitrary rotation; remote pointer uses visible skull center; 50cm miss rejected; other bones retain rotation validation.");
+            if(!EditorApplication.isPlaying)throw new Exception("Play Mode required.");
+            BoneComfortVerification.Start();
         }
         [MenuItem("Bone Assembly/Verify Full Trays And Learning Cards (Play Mode)")]
         public static void VerifyWorkbenchAndLearning()
         {
-            if(!EditorApplication.isPlaying)throw new Exception("Play mode is required.");
-            var game=UnityEngine.Object.FindAnyObjectByType<BoneAssemblyGame>();game.Bind();game.verificationMode=true;game.assignmentMode=false;game.StartStage(4);
-            if(game.pieces.Count!=22)throw new Exception("Expected 22 simplified teaching units, got "+game.pieces.Count);
-            if(game.pieces.Sum(p=>p.GetComponentsInChildren<MeshFilter>(true).Length)!=245)throw new Exception("Source meshes were lost while grouping.");
-            var source=JsonUtility.FromJson<SkeletonData>(Resources.Load<TextAsset>("SkeletonData").text).bones.ToDictionary(b=>b.id);
-            foreach(var p in game.pieces){
-                p.transform.SetPositionAndRotation(p.target,p.targetRotation);
-                foreach(var filter in p.GetComponentsInChildren<MeshFilter>(true)){
-                    int id=int.Parse(filter.name.Substring("Source bone ".Length));
-                    var expected=new Vector3(0,1.02f+game.assemblyLift,.25f)+source[id].center;
-                    if(Vector3.Distance(expected,filter.transform.position)>.001f)throw new Exception("Grouping displaced mesh "+id);
-                }
-                var card=BoneEducation.Get(p);if(string.IsNullOrEmpty(card.Explanation)||card.ThaiName=="กระดูกในระบบโครงร่าง")throw new Exception("Missing learning content: "+p.label);
-            }
-            game.StartStage(3);if(game.ActivePieces.Count()!=4||game.ActivePieces.Any(p=>p.label.EndsWith("fibula")||p.label.EndsWith("patella")))throw new Exception("Small leg pieces not grouped.");
-            game.StartStage(0);if(game.ActivePieces.Count()!=2)throw new Exception("Hands not grouped.");
-            foreach(var p in game.ActivePieces)if(p.GetComponentsInChildren<MeshFilter>(true).Length!=27||p.GetComponent<BoxCollider>().size.x<.139f)throw new Exception("Hand geometry or grab area missing.");
-            var hand=game.ActivePieces.First();hand.transform.rotation=Quaternion.Euler(0,45,0);
-            hand.transform.position+=BoneSurfacePlacement.MeshBounds(hand.ghost).center+Vector3.right*.15f-BoneSurfacePlacement.MeshBounds(hand.gameObject).center;
-            if(!game.TryPlace(hand))throw new Exception("Hand snap assist failed.");
-            game.StartStage(4);var trays=game.GetComponentsInChildren<Renderer>(true).Where(r=>r.name=="Tray sterile lining").ToArray();
-            var active=game.ActivePieces.ToArray();
-            if(active.Any(p=>!p.gameObject.activeSelf))throw new Exception("Pieces are still hidden after eight.");
-            for(int i=0;i<active.Length;i++){
-                var p=active[i];var bounds=BoneSurfacePlacement.MeshBounds(p.gameObject);var tray=trays.OrderBy(r=>Mathf.Abs(r.bounds.center.x-bounds.center.x)).First().bounds;
-                if(bounds.min.x<tray.min.x-.001f||bounds.max.x>tray.max.x+.001f||bounds.min.z<tray.min.z-.001f||bounds.max.z>tray.max.z+.001f||bounds.min.y<tray.max.y+.007f)throw new Exception("Piece outside tray: "+p.label);
-                for(int j=0;j<i;j++)if(BoneSurfacePlacement.OverlapsTop(bounds,BoneSurfacePlacement.MeshBounds(active[j].gameObject)))throw new Exception("Tray pieces overlap: "+p.label+" / "+active[j].label);
-                Physics.SyncTransforms();float distance;var picked=game.Grab(new Ray(bounds.center+Vector3.up*(bounds.extents.y+.3f),Vector3.down),2,out distance);
-                if(picked!=p)throw new Exception("Cannot pick up tray piece: "+p.label);
-                if(game.playerCamera.GetComponent<BoneLearningDisplay>().CurrentExplanation!=BoneEducation.Get(p).Explanation)throw new Exception("Wrong learning card.");p.held=false;
-            }
-            var font=Resources.Load<Font>("Fonts/Sarabun-Regular");if(!font||!font.HasCharacter('ก'))throw new Exception("Thai font missing.");
-            game.Bind();if(game.pieces.Count!=22)throw new Exception("Grouping was not idempotent.");
-            game.BeginAssignment(3);game.verificationMode=false;game.ResetDesktopSeat();
-            CaptureTo("output/All-Bones-On-Trays.png");
-            var sample=game.ActivePieces.First(p=>p.label.Contains("lower leg"));game.ShowBoneInformation(sample);
-            CaptureTo("output/Bone-Learning-Card.png");
-            File.WriteAllText("tmp/workbench-verification.txt","PASS: 22 units retain all 245 original meshes in their anatomical positions; lower leg pieces and each hand grouped; enlarged hand grab and snap; every piece visible, fits its tray without overlaps and is ray-grabbable; all pieces show matching Thai-English learning content; Thai font present; repeated grouping does not duplicate units.");
+            if(!EditorApplication.isPlaying)throw new Exception("Play Mode required.");
+            BoneComfortVerification.Start();
         }
-        [MenuItem("Bone Assembly/Verify Timed Review And Shoulder Snap (Play Mode)")]
+        [MenuItem("Bone Assembly/Verify Comfortable VR Handling (Play Mode)")]
         public static void VerifyReviewAndSnap()
         {
-            if(!EditorApplication.isPlaying)throw new Exception("Play mode is required.");
-            var game=UnityEngine.Object.FindAnyObjectByType<BoneAssemblyGame>();game.Bind();game.verificationMode=true;game.assignmentMode=false;game.practice=false;game.StartStage(1);
-            var shoulder=game.ActivePieces.First(p=>p.IsShoulderBlade);var targetCenter=BoneSurfacePlacement.MeshBounds(shoulder.ghost).center;
-            shoulder.transform.rotation=Quaternion.Euler(80,150,60);
-            shoulder.transform.position+=targetCenter+Vector3.right*.24f-BoneSurfacePlacement.MeshBounds(shoulder.gameObject).center;
-            if(!game.TryPlace(shoulder)||Quaternion.Angle(shoulder.transform.rotation,shoulder.targetRotation)>.001f)throw new Exception("Shoulder assistance failed.");
-            game.StartStage(1);shoulder.held=true;shoulder.transform.rotation=Quaternion.Euler(70,130,40);var pointer=new Vector3(0,1.8f,-.1f);
-            if(!game.TryPlaceFromRay(shoulder,new Ray(pointer,(targetCenter+Vector3.right*.24f-pointer).normalized)))throw new Exception("Remote shoulder assistance failed.");
-            var placedPosition=shoulder.transform.position;var placedRotation=shoulder.transform.rotation;int errors=game.mistakes;float elapsed=game.elapsed;
-            game.ShowBoneInformation(shoulder);var display=game.playerCamera.GetComponent<BoneLearningDisplay>();float shown=Time.time;
-            shoulder.held=true;display.UpdateVisibility(shown+3.99f);if(!display.IsVisible)throw new Exception("Card disappeared early.");
-            display.UpdateVisibility(shown+4f);if(display.IsVisible)throw new Exception("Card did not expire while held.");shoulder.held=false;
-            Physics.SyncTransforms();var bounds=BoneSurfacePlacement.MeshBounds(shoulder.gameObject);var ray=new Ray(bounds.center+Vector3.up*(bounds.extents.y+.3f),Vector3.down);
-            if(!game.InteractWithRay(ray)||!display.IsVisible)throw new Exception("Trigger review failed.");
-            display.UpdateVisibility(Time.time+4f);float distance;if(game.Grab(ray,2,out distance)!=null||!display.IsVisible)throw new Exception("Mouse/grip review failed.");
-            if(!shoulder.placed||shoulder.held||Vector3.Distance(placedPosition,shoulder.transform.position)>.001f||Quaternion.Angle(placedRotation,shoulder.transform.rotation)>.001f||game.mistakes!=errors||game.elapsed!=elapsed)throw new Exception("Review changed the placed bone or score.");
-            var body=game.ActivePieces.First(p=>!p.IsShoulderBlade);body.transform.SetPositionAndRotation(body.target,Quaternion.Euler(0,90,0));if(game.TryPlace(body))throw new Exception("Rotation check removed from other bones.");
-            game.StartStage(1);shoulder.transform.SetPositionAndRotation(shoulder.target+Vector3.right*.5f,shoulder.targetRotation);if(game.TryPlace(shoulder))throw new Exception("Shoulder accepted a distant miss.");
-            game.StartStage(1);foreach(var p in game.ActivePieces.ToArray()){p.transform.SetPositionAndRotation(p.target,p.targetRotation);game.TryPlace(p);}
-            if(!game.completed)throw new Exception("Review completion setup failed.");
-            game.SendMessage("Celebrate");game.ReviewPlacedBones();Physics.SyncTransforms();
-            if(game.CanManipulate||game.ActivePieces.Any(p=>!p.placed||!p.gameObject.activeSelf))throw new Exception("Completed review did not restore locked bones.");
-            var reviewBone=game.ActivePieces.First(p=>p.label.Contains("humerus"));var reviewBounds=BoneSurfacePlacement.MeshBounds(reviewBone.gameObject);
-            if(!game.InteractWithRay(new Ray(reviewBounds.center+Vector3.up*(reviewBounds.extents.y+.3f),Vector3.down)))throw new Exception("Post-win inspection failed.");
-            game.verificationMode=false;game.StartStage(1);
-            File.WriteAllText("tmp/review-verification.txt","PASS: shoulder snap at 24cm auto-orients both direct and remote placements; 50cm miss rejected; other bones retain rotation checks; cards remain at 3.99s and expire at 4s even while held; trigger and mouse/grip review preserve bone position, score and time; post-win REVIEW restores locked placed bones and supports inspection after the celebration.");
+            if(!EditorApplication.isPlaying)throw new Exception("Play Mode required.");
+            BoneComfortVerification.Start();
         }
     }
 }

@@ -57,7 +57,8 @@ namespace BoneAssembly
         public static void Arrange(List<BonePiece> pieces)
         {
             var items=pieces.Select(p=>{
-                p.transform.SetPositionAndRotation(p.target,p.targetRotation);
+                p.homeRotation=Quaternion.Normalize(p.homeRotation);
+                p.transform.SetPositionAndRotation(p.target,p.homeRotation);
                 var b=BoneSurfacePlacement.MeshBounds(p.gameObject);
                 return (piece:p,bounds:b,offset:b.center-p.transform.position);
             }).OrderByDescending(item=>item.bounds.size.z).ToArray();
@@ -70,7 +71,7 @@ namespace BoneAssembly
                         var item=shelf[row+column];
                         var center=new Vector3(side*1.25f+(column==0?-.25f:.25f),1.04f,cursor-depth*.5f);
                         item.piece.home=center-new Vector3(item.offset.x,0,item.offset.z);
-                        item.piece.homeRotation=item.piece.targetRotation;
+                        // Tray orientation stays horizontal when the blueprint is upright.
                     }
                     cursor-=depth+.08f;
                 }

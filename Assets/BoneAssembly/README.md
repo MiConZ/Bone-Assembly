@@ -8,36 +8,31 @@
 
 1. เปิด Scene `Assets/Scenes/BoneAssemblyVR.unity`
 2. กด Play ใน Unity เลือกส่วนร่างกายทางซ้ายหรือบนจอภายในห้อง
-3. หยิบกระดูกสีงาช้างจากถาด แล้ววางให้ตรงเงาบนเตียง ทั้งตำแหน่งและมุมหมุน
+3. หยิบกระดูกสีงาช้างจากถาด แล้ววางให้ตรงเงาบนกระดานแนวตั้ง ทั้งตำแหน่งและมุมหมุน
 
-## การควบคุมด้วยเมาส์
+## Comfortable VR controls
 
-- คลิกซ้าย: หยิบ / ปล่อยกระดูก
-- เลื่อนเมาส์: เคลื่อนกระดูกตามแนวเล็ง; ล้อเมาส์: ปรับระยะใกล้ไกล
-- Q / E: หมุน; กด Shift ร่วมด้วยเพื่อเปลี่ยนแกน
-- F: จัดทิศทางกระดูกตรงกับเป้าหมาย (สำหรับทดลองด้วยเมาส์)
-- จุดประกอบและจุดพักบนถาดคำนวณจากขอบล่างของ mesh จริง เว้นเหนือผิว 8 มม. รวมทั้งกันโมเดลทะลุเตียง/ถาดขณะถือและหมุน
-- คลิกขวาค้าง: มองรอบห้อง; WASD: เคลื่อนที่ในโหมดเดสก์ท็อป
-- H: คำใบ้; R: เริ่มด่านใหม่
+Play seated or standing from one spot. The blueprint is upright; side trays remain horizontal. Use RECENTER WORKSPACE after changing posture. The left panel adjusts height, distance, and size. Size changes require releasing held bones and return loose pieces to the trays without resetting completed work.
 
-## Meta Quest
+- Grip near a bone: grab at the contact point. Aim and hold Grip: magnetically draw a distant bone toward your hand.
+- Release Grip: drop with gravity and collisions, without submitting or counting a mistake.
+- Thumbstick up/down while holding: extend/retract the bone.
+- Trigger while holding: submit the actual position and rotation. All bones require manual alignment.
+- Wrong submissions flash red and stay held. Feedback distinguishes wrong bone, wrong rotation, and move closer.
+- Hold A (right) / X (left) while keeping Grip held: float the bone in place. Reposition your wrist and release A / X to capture the new grip without snapping.
+- Grip near the bone with the other hand: transfer at that contact point.
+- B / Y: hide/show the bone-side information card. It faces the player and stays visible while held.
+- Trigger with an empty hand: select controls or inspect a completed bone.
+- RESET LOOSE BONES: recover only uncompleted, unheld pieces. Score, timer, completed anatomy, and held pieces are preserved. Out-of-room/below-floor pieces are automatically rescued.
+- RESTART: restart the assignment, including timer and completed pieces.
 
-ตั้งค่า OpenXR สำหรับ Android พร้อม Oculus Touch และ Meta Quest Support แล้ว (ARM64 / IL2CPP / Vulkan) ยังไม่ได้สร้าง APK ตามคำขอผู้ใช้ และยังไม่ได้ทดสอบบนแว่นจริง
+PolyOne rigged hands are configured as separate blue surgical gloves with controller-driven finger animation. Original assets are under `Assets/PolyOne`; derived prefabs and license/source notes are in `Assets/BoneAssembly/Hands`.
 
-- Grip: หยิบค้างและปล่อยเพื่อวาง ใช้มือซ้ายหรือขวาได้
-- เมื่อหยิบ จุดกึ่งกลางกระดูกจะย้ายมาอยู่หน้ามือประมาณ 12 ซม. แม้หยิบผ่านเส้นเล็งจากระยะไกล ปรับระยะได้ที่ `Player Rig > LabPlayer > Hold Distance`
-- เคลื่อนและหมุนคอนโทรลเลอร์เพื่อจัดวางกระดูก
-- ขณะกด Grip ถือกระดูก ดันก้านอนาล็อกขึ้นเพื่อเลื่อนกระดูกออกไปไกล (สูงสุด 3.5 เมตร) หรือดึงลงเพื่อเลื่อนกลับ แล้วปล่อย Grip เพื่อวาง ใช้ได้ทั้งสองมือ
-- การเล็งแล้วกด Trigger เพื่อวางระยะไกลใช้ได้ทั้งโหมดนั่งและโหมดยืน ไม่ต้องเอื้อมถึงเตียง
-- Trigger เมื่อมือว่าง: ชี้กดปุ่มบนจอในห้อง
-- Trigger ขณะถือกระดูก: ชี้ตำแหน่งบนเตียงแล้วกดเพื่อวางผ่านเส้นเล็ง ยังตรวจตำแหน่งและมุมหมุนตามโหมดเดิม
-- ส่วนหัวมีตัวช่วยเฉพาะ: เล็งใกล้ศูนย์กลางกะโหลกในระยะ 25 ซม. ระบบจัดมุมและล็อกให้เอง ทั้งการปล่อยใกล้ตำแหน่งและการใช้ Trigger วางผ่านเส้นเล็ง ส่วนอื่นยังตรวจมุมหมุนตามเดิม
-- เริ่มต้นเป็นโหมดนั่ง ไม่ต้องเดินหรือเอื้อมไปถึงหัวเตียง หยิบกระดูกระยะไกลมาใกล้มือแล้ววางผ่านเส้นเล็งได้ทั้งสองมือ
-- มุมเริ่มต้นยกเหนือเตียงตรงแนวกึ่งกลางโครงกระดูก (ระดับเสมือน 2.20 เมตร) ในเดสก์ท็อปกล้องกดลงตรงกลางร่างและเห็นครบทั้งตัว ส่วน VR ยังคงหมุนมองตามศีรษะจริง
-- ปุ่ม RECENTER SEAT ปรับจุดนั่ง ความสูง และทิศใหม่ตามตำแหน่งปัจจุบัน ไม่ต้องสลับไปโหมดยืน
-- โหมดนั่งปิด WASD ในการทดลองด้วยเดสก์ท็อป; ใน VR ไม่มีการเดินด้วยคอนโทรลเลอร์
-- ไม่มีการเคลื่อนกล้องอัตโนมัติใน VR
-- ทดสอบผ่าน Quest Link ใน Editor ต้องมี OpenXR runtime ของแว่นพร้อมใช้งาน
+## Desktop testing
+
+Click: grab/drop; Enter: submit. Mouse wheel: reach. Q/E: rotate; Shift changes axis. Right mouse: look. B: info. Backspace: recover loose bones. R: restart. Click world controls with an empty hand.
+
+Stop and restart Unity Play Mode after code changes. Quest Link needs the headset OpenXR runtime. Installed APKs require rebuilding. Controller-free hand tracking is not implemented.
 
 ## รูปแบบการเล่น
 
@@ -47,7 +42,7 @@
 - ค่าเริ่มต้น: Assignment 1 ลำตัว, 2 แขนและมือ, 3 ขาและเท้า, 4 เต็มตัว (สไลด์ไม่ได้กำหนดเนื้อหาของแต่ละ Assignment)
 - เวลาแต่ละรอบ 10:00 นาที นับถอยหลังและหยุดเมื่อจบเกม
 - ใน Assignment เงาเป้าหมายกระพริบ 3 วินาทีแรก แล้วจางลงจนเหลือเงาบางที่วินาที 5
-- ประกอบครบก่อนหมดเวลา: END GAME / WIN และโครงกระดูกสีเขียวเต้นฉลอง
+- ประกอบครบก่อนหมดเวลา: END GAME / WIN และเก็บกระดูกสีเขียวบนกระดานไว้ดูข้อมูล
 - เวลาเหลือ 0:00 ก่อนประกอบครบ: END GAME / LOSE หยุดการหยิบ/วาง แสดงตำแหน่งที่ขาดเป็นสีแดง กด RESET เพื่อลองใหม่
 - Test Mode เลือกส่วนร่างกายได้ ซ่อนเงาตำแหน่งตั้งแต่เริ่มและนับถอยหลัง 10 นาที
 
@@ -56,15 +51,11 @@
 - Practice: มีเงาตำแหน่งและคำใบ้; กระดูกทั่วไประยะยอมรับ 24 ซม. / มุม 55 องศา
 - Test: ซ่อนเป้าหมายของชิ้นที่ต้องวางและปิดคำใบ้; กระดูกทั่วไประยะ 18 ซม. / มุม 40 องศา
 - วางถูก: ล็อกตำแหน่ง สีเขียว เสียงยืนยัน และสั่นคอนโทรลเลอร์
-- วางผิด: สีแดงพร้อมข้อความอธิบาย แล้วคืนกระดูกไปที่ถาด
+- วางผิด: กระพริบสีแดงพร้อมข้อความอธิบาย และยังถือไว้เพื่อแก้ไข
 - เก็บจำนวนชิ้น เวลา ความผิดพลาด คำใบ้ ความแม่นยำ และเวลาที่ดีที่สุดต่อด่าน/โหมดใน PlayerPrefs
 - ถาดขยายและจัดวางตามขนาดจริงของแต่ละชุด แสดงทุกชิ้นตั้งแต่เริ่มด่าน ไม่มีการซ่อนชิ้นที่เกิน 8 ชิ้น
 - มือแต่ละข้างหยิบเป็นชุดเดียว พร้อมพื้นที่หยิบขั้นต่ำ 14 ซม. และระยะช่วย snap 20 ซม. / มุม 60 องศา
 - กระดูกหน้าแข้ง น่อง และสะบ้าของแต่ละข้างรวมเป็นหนึ่งชุด เพื่อลดชิ้นเล็กที่หยิบยาก
-- ตอนหยิบมีแผงชื่อไทย–อังกฤษ พร้อมตำแหน่งและหน้าที่เป็นภาษาไทย แสดง 4 วินาทีแล้วซ่อน แม้ยังถือกระดูกอยู่ คลิกซ้ายบนกระดูกที่วางบนเตียงแล้ว หรือชี้แล้วกด Trigger ใน VR เพื่ออ่านซ้ำ โดยกระดูกไม่หลุดจากตำแหน่ง
-- หลัง WIN กด REVIEW เพื่อหยุดช่วงเต้นและกลับมาดูชิ้นที่ประกอบบนเตียง กดอ่านข้อมูลได้โดยกระดูกยังล็อกอยู่และเวลาไม่เดินต่อ
-- เล็งวางตามศูนย์กลางโมเดลที่เห็นจริง กระดูกทั่วไปยอมรับระยะ 18 ซม. / มุม 40 องศา (Practice: 24 ซม. / 55 องศา) ส่วนสะบักช่วยจัดมุมอัตโนมัติเมื่อใกล้ตำแหน่งในระยะ 28 ซม.
-- เมื่อจบด่าน โครงกระดูกเต็มตัวจะลุกจากเตียงและเต้นฉลองแบบไขว้แขน/สลับยกเข่า ใช้ mesh เดิมกับ animation ที่สร้างในโค้ด กด NEXT หรือ RESET เพื่อออกจากช่วงเต้น กล้อง VR อยู่กับที่
 
 ## โมเดลและขอบเขตต้นแบบ
 
@@ -83,3 +74,5 @@
 เมนู `Bone Assembly > Capture Theatre Preview` บันทึกภาพฉากลง `output/OperatingTheatre.png`
 
 ยังไม่ได้ทดสอบประสิทธิภาพ ความสบาย การติดตามมือ และคอนโทรลเลอร์บน Quest จริง ไม่มี APK หรือ executable ที่บิลด์แล้ว
+
+Current verification: `Bone Assembly > Verify Comfortable VR Handling (Play Mode)`. Results: `tmp/comfort-verification.txt`; preview: `output/ComfortWorkspace.png`. This covers physics, magnet cancellation, floating regrip, feedback, recovery, board adjustments, cards, assignments, and test stages. Physical Quest comfort and performance still require headset testing.

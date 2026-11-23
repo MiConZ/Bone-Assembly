@@ -31,8 +31,10 @@ namespace BoneAssembly
         public int stage = 1, mistakes, hints; public bool practice = true, seated, completed, soundEnabled = true;
         public bool startSeated = true;
         public static readonly Vector3 SeatedAnchor = new Vector3(0,0,-.15f);
-        public const float SeatedEyeHeight = 2.20f;
-        public Vector3 AssemblyViewCenter => bodyOrigin+Vector3.up*(assemblyLift+.03f)-Vector3.forward*.20f;
+        public const float SeatedEyeHeight = 1.35f;
+        public BoneWorkspace Workspace { get; private set; }
+        public PlacementResult LastPlacement { get; private set; }
+        public Vector3 AssemblyViewCenter => Workspace&&Workspace.Board?Workspace.Board.position:bodyOrigin+Vector3.up*(assemblyLift+.03f)-Vector3.forward*.20f;
         [Range(.12f,.4f)] public float headSnapDistance=.25f;
         [Range(.12f,.35f)] public float handSnapDistance=.20f;
         public float elapsed, textScale = 1; public string message = "Select a bone from the instrument trays.";
@@ -63,35 +65,42 @@ namespace BoneAssembly
             else Bind();
             if(assignmentMode)ShowAssignmentMenu();else StartStage(stage);
             RefreshAssignmentControls();
-            if(seated)rig.GetComponent<LabPlayer>()?.RecenterSeat();
+            Workspace=GetComponent<BoneWorkspace>()??gameObject.AddComponent<BoneWorkspace>();
+            Workspace.Initialize(this);
+            foreach(var p in pieces)p.InitializePhysics(this);
+            rig.GetComponent<LabPlayer>()?.RecenterSeat();
         }
         public void CalibrateSeatedPose(Vector3 trackedPosition,Quaternion trackedRotation)
         {
             rig.rotation=Quaternion.Euler(0,-trackedRotation.eulerAngles.y,0);
-            rig.position=(settings?settings.seatedAnchor:SeatedAnchor)+Vector3.up*(settings?settings.seatedEyeHeight:SeatedEyeHeight)-rig.rotation*trackedPosition;
+            var horizontal=rig.rotation*trackedPosition;horizontal.y=0;
+            rig.position=SeatedAnchor-horizontal;
+            Workspace?.Recenter();
         }
         public void ResetDesktopSeat()
         {
             rig.SetPositionAndRotation(settings?settings.seatedAnchor:SeatedAnchor,Quaternion.identity);
-            playerCamera.transform.localPosition=Vector3.up*(settings?settings.seatedEyeHeight:SeatedEyeHeight);
+            playerCamera.transform.localPosition=Vector3.up*SeatedEyeHeight;
             playerCamera.fieldOfView=88;
-            playerCamera.transform.LookAt(AssemblyViewCenter);
+            playerCamera.transform.localRotation=Quaternion.identity;
+            Workspace?.Recenter();
         }
         void OnEnable(){if(Application.isPlaying&&transform.childCount>0)Bind();}
 
         public void Bind()
         {
             pieces = GetComponentsInChildren<BonePiece>(true).Where(p=>!p.retired).ToList();
-            BoneWorkbenchLayout.Simplify(this);
+            if(!Workspace)BoneWorkbenchLayout.Simplify(this);
             if(!authoringPrepared)BoneWorkbenchLayout.ResizeTrays(this);
-            board = FindNamed("StatusBoard")?.GetComponent<TextMesh>();
-            feedback = FindNamed("Feedback")?.GetComponent<TextMesh>();
+            board = GetComponentsInChildren<TextMesh>(true).FirstOrDefault(t=>t.name=="StatusBoard");
+            feedback = GetComponentsInChildren<TextMesh>(true).FirstOrDefault(t=>t.name=="Feedback");
             playerCamera = GetComponentInChildren<Camera>(); rig = playerCamera.transform.parent;
             audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
             RepairSurfacePlacement();
         }
         public void RepairSurfacePlacement()
         {
+            if(Workspace&&Workspace.Board)return;
             supportSurfaces=GetComponentsInChildren<Renderer>(true).Where(r=>r.name=="Sterile drape"||r.name=="Tray sterile lining").ToArray();
             var bed=supportSurfaces.FirstOrDefault(r=>r.name=="Sterile drape");
             if(bed&&pieces.Count>0){
@@ -121,7 +130,7 @@ namespace BoneAssembly
         }
         public void ConstrainHeldPiece(BonePiece p)
         {
-            if(supportSurfaces==null)return;
+            if(p.Body||supportSurfaces==null)return;
             var bounds=BoneSurfacePlacement.MeshBounds(p.gameObject);float lift=0;
             foreach(var surface in supportSurfaces)if(surface&&BoneSurfacePlacement.OverlapsTop(bounds,surface.bounds))lift=Mathf.Max(lift,surface.bounds.max.y+SurfaceClearance-bounds.min.y);
             if(lift>0)p.transform.position+=Vector3.up*lift;
@@ -303,7 +312,7 @@ namespace BoneAssembly
             if(board)board.gameObject.SetActive(!selectingAssignment);
             if(feedback)feedback.gameObject.SetActive(!selectingAssignment);
             var subtitle=FindNamed("Subtitle");if(subtitle)subtitle.gameObject.SetActive(!selectingAssignment);
-            if(subtitle&&seated)subtitle.GetComponent<TextMesh>().text=settings?settings.seatedInstructions:"SEATED / GRIP: PICK UP / TRIGGER: AIM AND PLACE";
+            if(subtitle)subtitle.GetComponent<TextMesh>().text="GRIP: MAGNET / HOLD    TRIGGER: SUBMIT";
             foreach(string command in new[]{"mode","hint","reset","next"}){
                 var button=FindNamed("Button "+command);var label=FindNamed("Label "+command);
                 if(button)button.gameObject.SetActive(!selectingAssignment);if(label)label.gameObject.SetActive(!selectingAssignment);
@@ -314,8 +323,9 @@ namespace BoneAssembly
                 if(button)button.GetComponent<LabAction>().command=assignmentMode?(i<4?"assignment:"+i:"test"):"stage:"+i;
                 if(label)label.GetComponent<TextMesh>().text=assignmentMode?(i<4?(settings?settings.assignmentPrefix:"ASSIGNMENT")+" "+(i+1):(settings?settings.testLabel:"TEST MODE")):stages[i];
             }
+            var restart=FindNamed("Label reset");if(restart)restart.GetComponent<TextMesh>().text="RESTART";
             var mode=FindNamed("Label mode");if(mode)mode.GetComponent<TextMesh>().text=settings?settings.modeLabel:"ASSIGNMENT / TEST";
-            var seat=FindNamed("Label seated");if(seat)seat.GetComponent<TextMesh>().text=settings?settings.recenterLabel:"RECENTER SEAT";
+            var seat=FindNamed("Label seated");if(seat)seat.GetComponent<TextMesh>().text="RECENTER WORKSPACE";
             var hint=FindNamed("Label hint");if(hint){hint.GetComponent<TextMesh>().text=settings?(completed?settings.reviewLabel:settings.hintLabel):(completed?"REVIEW":"HINT");}
         }
         public void BeginAssignment(int index)
@@ -335,7 +345,7 @@ namespace BoneAssembly
             playerCamera?.GetComponent<BoneLearningDisplay>()?.Clear();
             RepairSurfacePlacement();
             if(celebration){celebration.gameObject.SetActive(false);Destroy(celebration.gameObject);celebration=null;}
-            foreach(var p in pieces) {p.held=false;p.owner=-1;p.placed=false;}
+            foreach(var p in pieces) {p.SetMotion(BoneMotionState.Free);p.RestoreColor();}
             stage=Mathf.Clamp(index,0,4);mistakes=hints=0;elapsed=0;completed=false;lost=false;selectingAssignment=false;
             flashed=null;
             if(assignmentGuide==null){
@@ -348,11 +358,11 @@ namespace BoneAssembly
                 foreach(var r in p.ghost.GetComponentsInChildren<Renderer>())r.sharedMaterial=assignmentMode?assignmentGuide:ghostMaterial;
                 foreach(var r in p.surfaces)r.sharedMaterial=ivory;
             }
-            BoneWorkbenchLayout.ResizeTrays(this);
+            if(!Workspace)BoneWorkbenchLayout.ResizeTrays(this);
             BoneWorkbenchLayout.Arrange(active);
             foreach(var p in active) {
                 p.transform.SetPositionAndRotation(p.home,p.homeRotation);
-                FitHomeToTray(p);p.transform.SetPositionAndRotation(p.home,p.homeRotation);
+                FitHomeToTray(p);p.ResetHome();
                 p.gameObject.SetActive(true);
             }
             message=assignmentMode?"10 MINUTES / Remember the blinking guide before it fades.":practice?"PRACTICE: match each bone to its blueprint.":"TEST: no blueprints. Match position AND orientation.";
@@ -364,35 +374,49 @@ namespace BoneAssembly
         {
             distance=0;var hits=Physics.RaycastAll(ray,4).OrderBy(h=>h.distance);
             foreach(var hit in hits) {
-                var action=hit.collider.GetComponent<LabAction>();if(action){Command(action.command);return null;}
+                var action=hit.collider.GetComponent<LabAction>();if(action)return null;
                 var p=hit.collider.GetComponentInParent<BonePiece>();
                 if(p&&p.placed){ShowBoneInformation(p);return null;}
                 if(!CanManipulate)return null;
-                if(p!=null&&!p.held&&!p.placed){p.held=true;p.owner=owner;distance=hit.distance;message=p.label+(p.IsHead||p.IsShoulderBlade?" / Aim near the matching outline; rotation snaps automatically.":" | Move and rotate, then release.");ShowBoneInformation(p);return p;}
+                if(p!=null&&!p.held&&!p.placed){p.Follow(p.transform.position,p.transform.rotation);p.SetMotion(BoneMotionState.Attracting,owner);distance=hit.distance;message=p.label+" | Grip: hold. Stick: reach. A / X: regrip. Trigger: submit.";ShowBoneInformation(p);return p;}
                 if(!hit.collider.isTrigger)break;
             }
             return null;
         }
         public bool TryPlace(BonePiece p)
         {
-            if(p==null||p.placed||!CanManipulate)return false;
+            LastPlacement=PlacementResult.Unavailable;
+            if(p==null||p.placed||!CanManipulate||p.Motion==BoneMotionState.Regripping)return false;
             if(RemainingTime<=0){FinishLoss();return false;}
             float snapDistance=p.IsHead?headSnapDistance:p.IsShoulderBlade?.28f:p.IsHand?handSnapDistance:practice?.24f:.18f;
-            bool close=Vector3.Distance(BoneSurfacePlacement.MeshBounds(p.gameObject).center,BoneSurfacePlacement.MeshBounds(p.ghost).center)<=snapDistance;
-            bool aligned=p.IsHead||p.IsShoulderBlade||Quaternion.Angle(p.transform.rotation,p.targetRotation)<(p.IsHand?60:practice?55:40);
-            p.held=false;p.owner=-1;
+            Vector3 center=BoneSurfacePlacement.MeshBounds(p.gameObject).center;
+            var nearest=pieces.OrderBy(candidate=>Vector3.SqrMagnitude(center-BoneSurfacePlacement.MeshBounds(candidate.ghost).center)).First();
+            bool close=nearest==p&&Vector3.Distance(center,BoneSurfacePlacement.MeshBounds(p.ghost).center)<=snapDistance;
+            bool aligned=Quaternion.Angle(p.transform.rotation,p.targetRotation)<(p.IsHand?60:practice?55:40);
             if(close&&aligned){
-                p.placed=true;p.transform.SetPositionAndRotation(p.target,p.targetRotation);p.ghost.SetActive(false);
+                p.SetMotion(BoneMotionState.Placed);p.Teleport(p.target,p.targetRotation);p.RestoreColor();p.ghost.SetActive(false);LastPlacement=PlacementResult.Success;
                 foreach(var r in p.surfaces)r.sharedMaterial=success;
                 message="CORRECT  /  "+p.label;Tone(880,.12f);RevealTray();
-                if(ActivePieces.All(a=>a.placed)){completed=true;message="END GAME / WIN! Select REVIEW to inspect, or NEXT to continue.";SaveResult();if(!verificationMode)Celebrate();RefreshAssignmentControls();}
+                if(ActivePieces.All(a=>a.placed)){completed=true;message="END GAME / WIN! Select REVIEW to inspect, or NEXT to continue.";SaveResult();RefreshAssignmentControls();}
                 UpdateBoard();
                 return true;
             }
-            mistakes++;flashed=p;flashUntil=Time.time+.6f;
-            foreach(var r in p.surfaces)r.sharedMaterial=error;
-            message=close?"ROTATE: orientation does not match. Returned to tray.":"TRY AGAIN: position does not match. Returned to tray.";
-            p.transform.SetPositionAndRotation(p.home,p.homeRotation);Tone(190,.16f);return false;
+            mistakes++;p.FlashError();
+            bool other=nearest!=p&&Vector3.Distance(center,BoneSurfacePlacement.MeshBounds(nearest.ghost).center)<=snapDistance;
+            LastPlacement=close?PlacementResult.WrongRotation:other?PlacementResult.WrongBone:PlacementResult.TooFar;
+            message=close?"WRONG ROTATION / Rotate this bone and submit again.":other?"WRONG BONE / This position belongs to another bone.":"MOVE CLOSER / Move the bone to a target before submitting.";
+            Tone(190,.16f);UpdateBoard();return false;
+        }
+        public void RefreshTrayHomes()
+        {
+            var loose=ActivePieces.Where(p=>!p.placed&&!p.held).ToList();
+            BoneWorkbenchLayout.Arrange(loose);
+            foreach(var p in loose)FitHomeToTray(p);
+        }
+        public void ResetLooseBones()
+        {
+            foreach(var p in ActivePieces)if(!p.placed&&!p.held)p.ResetHome();
+            message="Loose bones returned to trays. Completed work is unchanged.";
         }
         void RevealTray()
         {
@@ -412,16 +436,8 @@ namespace BoneAssembly
             if(piece&&piece.placed){ShowBoneInformation(piece);return true;}
             return false;
         }
-        public bool TryPlaceFromRay(BonePiece piece,Ray pointer)
-        {
-            if(!piece||!piece.held||!CanManipulate)return false;
-            float height=BoneSurfacePlacement.MeshBounds(piece.ghost).center.y;
-            var plane=new Plane(Vector3.up,new Vector3(0,height,0));
-            if(!plane.Raycast(pointer,out float distance)||distance<.05f||distance>4){message="Point at the operating table, then press Trigger to place.";return false;}
-            Vector3 offset=BoneSurfacePlacement.MeshBounds(piece.gameObject).center-piece.transform.position;
-            piece.transform.position=pointer.GetPoint(distance)-offset;
-            return TryPlace(piece);
-        }
+        // Compatibility entry point: submission never teleports a piece along a ray.
+        public bool TryPlaceFromRay(BonePiece piece,Ray pointer)=>TryPlace(piece);
         void Celebrate()
         {
             var dancer=new GameObject("Skeleton | Celebration dance");dancer.transform.SetParent(transform,false);
@@ -444,6 +460,8 @@ namespace BoneAssembly
         }
         public void Command(string command)
         {
+            if(command.StartsWith("board:")){Workspace?.Adjust(command.Substring(6));return;}
+            if(command=="recover"){ResetLooseBones();return;}
             if(command.StartsWith("assignment:")){BeginAssignment(int.Parse(command.Substring(11)));return;}
             if(command=="test"){assignmentMode=false;practice=false;StartStage(1);RefreshAssignmentControls();return;}
             if(command=="review"){ReviewPlacedBones();return;}
@@ -453,7 +471,7 @@ namespace BoneAssembly
                 case "next":if(completed){if(assignmentMode)BeginAssignment((assignmentIndex+1)%4);else StartStage((stage+1)%5);}else message="Complete this stage before continuing.";break;
                 case "mode":assignmentMode=!assignmentMode;practice=false;if(assignmentMode)ShowAssignmentMenu();else StartStage(1);RefreshAssignmentControls();break;
                 case "hint":if(completed){ReviewPlacedBones();break;}if(!practice){message="Hints are disabled in exam mode.";break;}var p=ActivePieces.FirstOrDefault(a=>!a.placed&&a.gameObject.activeSelf);if(p!=null){hints++;foreach(var r in p.ghost.GetComponentsInChildren<Renderer>())r.sharedMaterial=success;message="HINT  /  "+p.label+" : match the lit blueprint.";}break;
-                case "seated":seated=true;rig.GetComponent<LabPlayer>()?.RecenterSeat();message="SEATED / View recentered. Grip: pick up. Trigger: aim and place.";break;
+                case "seated":Workspace?.Recenter();message="Workspace recentered for your current seated or standing height.";break;
                 case "text":float oldScale=textScale;textScale=textScale<1.2f?1.35f:1;foreach(var label in GetComponentsInChildren<TextMesh>())label.characterSize*=textScale/oldScale;if(desktopUI)foreach(var label in desktopUI.GetComponentsInChildren<UnityEngine.UI.Text>(true))label.fontSize=Mathf.RoundToInt(label.fontSize*textScale/oldScale);break;
                 case "sound":soundEnabled=!soundEnabled;break;
             }
@@ -479,7 +497,7 @@ namespace BoneAssembly
         void FinishLoss()
         {
             lost=true;message="END GAME / LOSE / Time is up. Select RESET to try again.";
-            foreach(var p in ActivePieces){p.held=false;p.owner=-1;if(p.placed)continue;p.ghost.SetActive(true);foreach(var r in p.ghost.GetComponentsInChildren<Renderer>())r.sharedMaterial=error;}
+            foreach(var p in ActivePieces){if(p.placed)continue;p.Drop();p.ghost.SetActive(true);foreach(var r in p.ghost.GetComponentsInChildren<Renderer>())r.sharedMaterial=error;}
             UpdateBoard();
         }
         void UpdateBoard()
@@ -505,9 +523,9 @@ namespace BoneAssembly
             for(int i=0;i<(assignmentMode?4:5);i++)if(GUI.Button(new Rect(40,120+i*38,240,32),assignmentMode?"ASSIGNMENT "+(i+1):stages[i]))Command(assignmentMode?"assignment:"+i:"stage:"+i);
             if(GUI.Button(new Rect(40,320,115,32),assignmentMode?"TEST MODE":"ASSIGNMENTS"))Command("mode");
             if(GUI.Button(new Rect(165,320,115,32),completed?"REVIEW":"HINT [H]"))Command("hint");
-            if(GUI.Button(new Rect(40,362,115,32),"RESET [R]"))Command("reset");
+            if(GUI.Button(new Rect(40,362,115,32),"RESTART [R]"))Command("reset");
             if(GUI.Button(new Rect(165,362,115,32),"NEXT"))Command("next");
-            GUI.Box(new Rect(20,430,280,170),"",style);GUI.Label(new Rect(40,445,245,140),"SEATED / NO WALKING REQUIRED\nDesktop: click pick up / release\nWheel: depth   Q / E: rotate\nRight mouse: look   F: orient\nVR: Grip picks up near your hand\nAim + Trigger places on the table\nRecenter seat: adjust view and height");
+            GUI.Box(new Rect(20,430,280,170),"",style);GUI.Label(new Rect(40,445,245,140),"NO WALKING REQUIRED\nClick: grab / drop   Enter: submit\nWheel: depth   Q / E: rotate\nShift: alternate rotation axis\nBackspace: reset loose bones\nVR: Grip grab, Trigger submit\nA / X: float and regrip");
             if(GUI.Button(new Rect(20,610,135,32),"Recenter seat"))Command("seated");
             if(GUI.Button(new Rect(165,610,135,32),"Text size"))Command("text");
             var status=new GUIStyle(GUI.skin.box){fontSize=(int)(18*textScale),alignment=TextAnchor.MiddleCenter,wordWrap=true,padding=new RectOffset(18,18,10,10)};

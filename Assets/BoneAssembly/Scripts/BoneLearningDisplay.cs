@@ -7,6 +7,7 @@ namespace BoneAssembly
         [Header("Editable scene references")] public GameObject panel; public TextMesh title,english,body;
         public BoneGameSettings settings;
         BonePiece selected;float shown;
+        bool hidden,review;
         Font learningFont;
         public const float DisplayDuration=4f;
         public bool IsVisible => panel&&panel.activeSelf;
@@ -15,7 +16,9 @@ namespace BoneAssembly
         {
             if(!panel)CreatePanel();
             if(!learningFont&&title)learningFont=title.font;
-            selected=piece;shown=Time.time;var card=settings?settings.Information(piece):BoneEducation.Get(piece);
+            selected=piece;shown=Time.time;hidden=false;review=piece.placed;var card=settings?settings.Information(piece):BoneEducation.Get(piece);
+            panel.transform.SetParent(piece.transform.parent,true);
+            panel.transform.localScale=Vector3.one*.38f*(settings?settings.cardScale:1.25f);
             title.text=BoneEducation.Wrap(card.ThaiName,30);
             string englishName=card.EnglishName;int details=englishName.IndexOf(" (");if(details>=0)englishName=englishName.Substring(0,details);
             english.text=BoneEducation.Wrap(englishName,36);
@@ -50,7 +53,20 @@ namespace BoneAssembly
         }
         void SyncFontTexture(){if(!learningFont)return;foreach(var text in new[]{title,english,body})if(text)text.GetComponent<Renderer>().sharedMaterial.mainTexture=learningFont.material.mainTexture;}
         void Update(){if(panel&&panel.activeSelf)SyncFontTexture();UpdateVisibility(Time.time);}
-        public void UpdateVisibility(float now){if(panel&&now-shown>=(settings?settings.informationSeconds:DisplayDuration))panel.SetActive(false);}
+        public void UpdateVisibility(float now){if(panel)panel.SetActive(selected&&selected.gameObject.activeInHierarchy&&!hidden&&(selected.held||review));}
+        public void Toggle(){hidden=!hidden;UpdateVisibility(Time.time);}
+        void LateUpdate()
+        {
+            if(!selected||!panel||!panel.activeSelf)return;
+            var bounds=BoneSurfacePlacement.MeshBounds(selected.gameObject);
+            Vector3 right=Vector3.ProjectOnPlane(transform.right,Vector3.up).normalized;
+            float extent=Mathf.Abs(right.x)*bounds.extents.x+Mathf.Abs(right.y)*bounds.extents.y+Mathf.Abs(right.z)*bounds.extents.z;
+            float halfWidth=.42f*panel.transform.localScale.x;
+            // Choose the side nearer the centre of the player's view.
+            float side=Vector3.Dot(bounds.center-transform.position,right)>0?-1:1;
+            panel.transform.position=bounds.center+right*side*(extent+halfWidth+(settings?settings.cardGap:.08f));
+            panel.transform.rotation=Quaternion.LookRotation(panel.transform.position-transform.position,Vector3.up);
+        }
         public void Clear(){selected=null;if(panel)panel.SetActive(false);}
     }
 }

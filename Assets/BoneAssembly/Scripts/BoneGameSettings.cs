@@ -16,6 +16,15 @@ namespace BoneAssembly
         public Vector3 seatedAnchor = new Vector3(0,0,-.15f);
         [Range(1,3)] public float seatedEyeHeight = 2.2f;
         [Range(.05f,.3f)] public float holdDistance = .12f;
+        [Header("Comfortable interaction")]
+        [Range(.3f,4f)] public float magnetSpeed=1.5f;
+        [Range(8f,30f)] public float attachmentGain=18f;
+        [Range(1f,4f)] public float maximumReach=3.5f;
+        [Range(.5f,1.8f)] public float boardDistance=.9f;
+        [Range(.35f,1f)] public float boardScale=.6f;
+        [Range(-.8f,.5f)] public float boardHeightOffset=-.2f;
+        public GameObject leftHandPrefab,rightHandPrefab;
+        [Min(.02f)] public float cardGap=.08f;
         [Header("Learning card / การ์ดความรู้")]
         [Min(.5f)] public float informationSeconds = 4;
         public Vector3 cardPosition = new Vector3(.82f,-.03f,1.3f);

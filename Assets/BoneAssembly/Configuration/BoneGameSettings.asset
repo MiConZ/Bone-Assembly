@@ -19,6 +19,15 @@ MonoBehaviour:
   seatedAnchor: {x: 0, y: 0, z: -0.15}
   seatedEyeHeight: 2.2
   holdDistance: 0.12
+  magnetSpeed: 1.5
+  attachmentGain: 18
+  maximumReach: 3.5
+  boardDistance: 0.9
+  boardScale: 0.6
+  boardHeightOffset: -0.2
+  leftHandPrefab: {fileID: 5002379979569519826, guid: 14d351091753e1749b5659cfdaa9f45f, type: 3}
+  rightHandPrefab: {fileID: 444948005580662156, guid: a70a8e35e7f35664d8cbb4876b975834, type: 3}
+  cardGap: 0.08
   informationSeconds: 4
   cardPosition: {x: 0.82, y: -0.03, z: 1.3}
   cardScale: 1.25
@@ -146,9 +155,9 @@ MonoBehaviour:
   modeLabel: ASSIGNMENT / TEST
   hintLabel: HINT
   reviewLabel: REVIEW
-  resetLabel: RESET
+  resetLabel: RESTART ASSIGNMENT
   nextLabel: NEXT
-  recenterLabel: RECENTER SEAT
+  recenterLabel: RECENTER WORKSPACE
   textSizeLabel: TEXT SIZE
   soundLabel: SOUND
-  seatedInstructions: 'SEATED / GRIP: PICK UP / TRIGGER: AIM AND PLACE'
+  seatedInstructions: 'Grip: grab / magnet | Trigger: submit | A / X: regrip'

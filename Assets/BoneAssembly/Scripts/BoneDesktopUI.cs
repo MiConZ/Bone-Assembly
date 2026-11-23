@@ -29,7 +29,7 @@ namespace BoneAssembly
         {
             var s=game.settings;
             if(command.StartsWith("assignment:"))return s.assignmentPrefix+" "+(int.Parse(command.Substring(11))+1);
-            switch(command){case "test":return s.testLabel;case "hint":return s.hintLabel;case "reset":return s.resetLabel;case "next":return s.nextLabel;case "seated":return s.recenterLabel;case "text":return s.textSizeLabel;case "sound":return s.soundLabel;default:return fallback;}
+            switch(command){case "test":return s.testLabel;case "hint":return s.hintLabel;case "reset":return "RESTART ASSIGNMENT";case "next":return s.nextLabel;case "seated":return "RECENTER WORKSPACE";case "text":return s.textSizeLabel;case "sound":return s.soundLabel;default:return fallback;}
         }
         void Update()
         {
