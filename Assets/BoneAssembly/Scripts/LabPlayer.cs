@@ -22,6 +22,7 @@ namespace BoneAssembly
         readonly BonePiece[] held=new BonePiece[2]; readonly bool[] gripDown=new bool[2],triggerDown=new bool[2];
         readonly Transform[] hands=new Transform[2]; readonly LineRenderer[] rays=new LineRenderer[2];
         readonly Vector3[] offsets=new Vector3[2]; readonly Quaternion[] rotations=new Quaternion[2];
+        readonly float[] reach=new float[2];
         void OnEnable()
         {
             if(!Application.isPlaying||!head||!game)return;
@@ -71,6 +72,7 @@ namespace BoneAssembly
                 if(held[i]){
                     held[i].held=true;held[i].owner=i;
                     game.ShowBoneInformation(held[i]);
+                    game.message="Grip: hold / release. Stick up/down: extend / retract. Aim + Trigger: place remotely.";
                     if(held[i].IsHead)game.message="HEAD / Aim near the skull outline. Rotation aligns automatically.";
                     if(held[i].IsShoulderBlade)game.message="SHOULDER BLADE / Aim near the outline. Rotation aligns automatically.";
                     rotations[i]=Quaternion.Inverse(hands[i].rotation)*held[i].transform.rotation;
@@ -78,14 +80,24 @@ namespace BoneAssembly
                     var collider=held[i].GetComponent<BoxCollider>();
                     Vector3 centreOffset=held[i].transform.TransformVector(collider.center);
                     offsets[i]=Vector3.forward*holdDistance-Quaternion.Inverse(hands[i].rotation)*centreOffset;
+                    reach[i]=holdDistance;
                 }
             }
             if(held[i]){
                 if(!held[i].held){held[i]=null;}
-                else {held[i].transform.SetPositionAndRotation(hands[i].TransformPoint(offsets[i]),hands[i].rotation*rotations[i]);game.ConstrainHeldPiece(held[i]);if(!grip&&gripDown[i]){bool ok=game.TryPlace(held[i]);device.SendHapticImpulse(0,ok?.45f:.18f,.15f);held[i]=null;}}
+                else {
+                    // Extend the held bone without requiring the player to reach across the table.
+                    if(device.TryGetFeatureValue(CommonUsages.primary2DAxis,out Vector2 stick)&&Mathf.Abs(stick.y)>.2f){
+                        float next=Mathf.Clamp(reach[i]+stick.y*1.2f*Time.deltaTime,holdDistance,3.5f);
+                        offsets[i]+=Vector3.forward*(next-reach[i]);reach[i]=next;
+                    }
+                    held[i].transform.SetPositionAndRotation(hands[i].TransformPoint(offsets[i]),hands[i].rotation*rotations[i]);
+                    game.ConstrainHeldPiece(held[i]);
+                    if(!grip&&gripDown[i]){bool ok=game.TryPlace(held[i]);device.SendHapticImpulse(0,ok?.45f:.18f,.15f);held[i]=null;}
+                }
             }
             if(trigger&&!triggerDown[i]){
-                if(held[i]&&game.seated){
+                if(held[i]){
                     bool ok=game.TryPlaceFromRay(held[i],ray);device.SendHapticImpulse(0,ok?.45f:.18f,.15f);
                     if(!held[i].held)held[i]=null;
                 }else game.InteractWithRay(ray);
