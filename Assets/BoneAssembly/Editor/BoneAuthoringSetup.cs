@@ -12,6 +12,28 @@ namespace BoneAssembly.Editor
 {
     public static class BoneAuthoringSetup
     {
+        [MenuItem("Bone Assembly/Prepare Scene Workstation")]
+        public static void PrepareSceneWorkstation()
+        {
+            if (EditorApplication.isPlaying) throw new Exception("Stop Play Mode before preparing the workstation.");
+            var game=UnityEngine.Object.FindAnyObjectByType<BoneAssemblyGame>();
+            if (!game) throw new Exception("Open the Bone Assembly scene first.");
+            var workspace=game.GetComponent<BoneWorkspace>();
+            if (workspace && workspace.IsAuthored) return;
+            Undo.RegisterFullObjectHierarchyUndo(game.gameObject,"Prepare scene workstation");
+            game.Bind();
+            if (!workspace) workspace=Undo.AddComponent<BoneWorkspace>(game.gameObject);
+            game.selectingAssignment=true;
+            workspace.BakeScene(game);
+            game.rig.SetParent(workspace.Station.playerStart,false);
+            game.rig.SetLocalPositionAndRotation(Vector3.zero,Quaternion.identity);
+            game.playerCamera.transform.SetLocalPositionAndRotation(
+                new Vector3(0,game.settings?game.settings.seatedEyeHeight:BoneAssemblyGame.SeatedEyeHeight,-.48f),
+                Quaternion.Euler(9,0,0));
+            game.playerCamera.fieldOfView=88;
+            EditorSceneManager.MarkSceneDirty(game.gameObject.scene);
+        }
+
         [MenuItem("Bone Assembly/Fix VR Panel Layout")]
         public static void FixVRPanels()
         {

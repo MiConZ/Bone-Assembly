@@ -17,7 +17,7 @@ MonoBehaviour:
   headSnapDistance: 0.25
   handSnapDistance: 0.2
   seatedAnchor: {x: 0, y: 0, z: -0.15}
-  seatedEyeHeight: 2.2
+  seatedEyeHeight: 1.3
   holdDistance: 0.12
   magnetSpeed: 1.5
   attachmentGain: 18

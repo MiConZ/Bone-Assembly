@@ -50,7 +50,7 @@ namespace BoneAssembly.Editor
             var tray=game.Workspace.Station.leftTray;
             var authoredPosition=tray.position;
             var authoredRotation=tray.rotation;
-            var first=game.ActivePieces.First();
+            var first=game.ActivePieces.First(b=>game.Workspace.Station.SlotFor(b).parent==tray);
             var localHome=tray.InverseTransformPoint(first.home);
             tray.SetPositionAndRotation(authoredPosition+new Vector3(.08f,.1f,.07f),Quaternion.Euler(0,18,0)*authoredRotation);
             game.StartStage(4);
@@ -67,12 +67,21 @@ namespace BoneAssembly.Editor
                 for(int j=i+1;j<boxes.Length;j++)
                     if(boxes[i].Intersects(boxes[j])) throw new Exception("Overlapping tray slots: "+active[i].label+" / "+active[j].label);
             report.AppendLine("Full-body spawn bounds are disjoint");
+            foreach (var piece in active)
+            {
+                var slot=game.Workspace.Station.SlotFor(piece);
+                var lining=slot.parent.Find("Tray sterile lining").GetComponent<MeshCollider>();
+                var down=new Ray(slot.position+Vector3.up*.1f,Vector3.down);
+                if(!lining.Raycast(down,out var hit,.15f) || Mathf.Abs(hit.point.y-slot.position.y)>.015f)
+                    throw new Exception("Slot lacks a supporting tray surface: "+piece.label);
+            }
+            report.AppendLine("All 22 slots sit on the curved tray colliders");
             var p=game.ActivePieces.First(a=>a.IsHead);
             p.Teleport(p.home+Vector3.up*.5f,p.homeRotation);float initial=p.transform.position.y;
             yield return .25f;
             Check(p.transform.position.y<initial-.1f,"Dropped bone falls under gravity");
             yield return 1f;
-            Check(BoneSurfacePlacement.MeshBounds(p.gameObject).min.y>.84f,"Bone settles on side tray without falling through");
+            Check(BoneSurfacePlacement.MeshBounds(p.gameObject).min.y>tray.position.y-.03f,"Bone settles on side tray without falling through");
             p.SetMotion(BoneMotionState.Attracting,0);Vector3 start=p.transform.position;Vector3 goal=start+Vector3.up*.4f;p.Follow(goal,p.transform.rotation);
             yield return .1f;
             Check(p.transform.position.y>start.y&&p.transform.position.y<goal.y,"Magnet pickup moves gradually rather than teleporting");
@@ -111,7 +120,7 @@ namespace BoneAssembly.Editor
             Check(other.held&&other.transform.position==heldPosition&&p.placed&&p.transform.position==placedPosition&&game.elapsed==elapsed&&game.mistakes==mistakes,"Recovery preserves held pieces, completed pieces, timer and score");
             Check(!game.Workspace.Adjust("larger"),"Size change refused while holding a bone");other.Drop();
             other.Teleport(new Vector3(0,-1,0),Quaternion.identity);yield return .1f;
-            Check(other.transform.position.y>.8f,"Out-of-bounds bones are automatically rescued");
+            Check(Vector3.Distance(other.transform.position,other.home)<.08f,"Out-of-bounds bones are automatically rescued");
             float size=game.Workspace.Size;game.Workspace.Adjust("larger");
             Check(game.Workspace.Size>size&&p.placed&&Vector3.Distance(p.transform.position,p.target)<.001f,"Board resizing preserves completed anatomy");
             game.Workspace.Adjust("raise");game.Workspace.Adjust("far");

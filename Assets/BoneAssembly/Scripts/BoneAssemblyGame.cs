@@ -61,12 +61,14 @@ namespace BoneAssembly
         {
             ApplySettings();
             seated=startSeated;
+            Workspace=GetComponent<BoneWorkspace>();
             if (transform.childCount == 0) BuildRoom();
             else Bind();
             Workspace=GetComponent<BoneWorkspace>()??gameObject.AddComponent<BoneWorkspace>();
             Workspace.Initialize(this);
-            if(assignmentMode)ShowAssignmentMenu();else StartStage(stage);
             foreach(var p in pieces)p.InitializePhysics(this);
+            desktopRest = new Pose(playerCamera.transform.localPosition,playerCamera.transform.localRotation);
+            if(assignmentMode)ShowAssignmentMenu();else StartStage(stage);
             rig.GetComponent<LabPlayer>()?.RecenterSeat();
         }
         public void CalibrateSeatedPose(Vector3 trackedPosition,Quaternion trackedRotation)
@@ -76,18 +78,25 @@ namespace BoneAssembly
             var horizontal=rig.rotation*trackedPosition;horizontal.y=0;
             rig.position=start.position-horizontal;
         }
+        Pose desktopRest;
         public void ResetDesktopSeat()
         {
             var start=Workspace ? Workspace.Station.playerStart : null;
             rig.SetPositionAndRotation(start ? start.position : SeatedAnchor,start ? start.rotation : Quaternion.identity);
-            playerCamera.transform.localPosition=Vector3.up*1.45f;
+            if (Workspace && Workspace.IsAuthored)
+            {
+                playerCamera.transform.SetLocalPositionAndRotation(desktopRest.position,desktopRest.rotation);
+                return;
+            }
+            playerCamera.transform.localPosition=new Vector3(0, settings ? settings.seatedEyeHeight : SeatedEyeHeight, -.48f);
             playerCamera.fieldOfView=88;
-            playerCamera.transform.localRotation=Quaternion.identity;
+            playerCamera.transform.localRotation=Quaternion.Euler(9,0,0);
         }
         void OnEnable(){if(Application.isPlaying&&transform.childCount>0)Bind();}
 
         public void Bind()
         {
+            if (!Workspace) Workspace=GetComponent<BoneWorkspace>();
             pieces = GetComponentsInChildren<BonePiece>(true).Where(p=>!p.retired).ToList();
             if(!Workspace)BoneWorkbenchLayout.Simplify(this);
             if(!authoringPrepared)BoneWorkbenchLayout.ResizeTrays(this);
@@ -99,7 +108,7 @@ namespace BoneAssembly
         }
         public void RepairSurfacePlacement()
         {
-            if(Workspace&&Workspace.Board)return;
+            if(Workspace&&(Workspace.IsAuthored||Workspace.Board))return;
             supportSurfaces=GetComponentsInChildren<Renderer>(true).Where(r=>r.name=="Sterile drape"||r.name=="Tray sterile lining").ToArray();
             var bed=supportSurfaces.FirstOrDefault(r=>r.name=="Sterile drape");
             if(bed&&pieces.Count>0){
@@ -335,8 +344,16 @@ namespace BoneAssembly
         }
         void ShowAssignmentMenu()
         {
-            StartStage(4);selectingAssignment=true;
-            foreach(var p in pieces){p.gameObject.SetActive(false);p.ghost.SetActive(false);}
+            assignmentIndex=3;StartStage(4);selectingAssignment=true;
+            foreach(var p in pieces){
+                bool preview=Workspace && Workspace.IsAuthored;
+                p.gameObject.SetActive(preview);p.ghost.SetActive(preview);
+                if(preview){
+                    p.ResetHome();
+                    if(p.Body)p.Body.isKinematic=true;
+                    foreach(var r in p.ghost.GetComponentsInChildren<Renderer>(true))r.sharedMaterial=ghostMaterial;
+                }
+            }
             message="SELECT ASSIGNMENT 1 - 4";
             RefreshAssignmentControls();
         }
@@ -359,7 +376,7 @@ namespace BoneAssembly
                 foreach(var r in p.surfaces)r.sharedMaterial=ivory;
             }
             if(!Workspace)BoneWorkbenchLayout.ResizeTrays(this);
-            if(Workspace) BoneWorkbenchLayout.ArrangeOnStation(active,Workspace.Station);
+            if(Workspace) Workspace.UpdateHomes(active);
             else BoneWorkbenchLayout.Arrange(active);
             foreach(var p in active) {
                 p.transform.SetPositionAndRotation(p.home,p.homeRotation);
@@ -411,7 +428,7 @@ namespace BoneAssembly
         }
         public void RefreshTrayHomes()
         {
-            if(Workspace){BoneWorkbenchLayout.ArrangeOnStation(ActivePieces.ToList(),Workspace.Station);return;}
+            if(Workspace){Workspace.UpdateHomes(ActivePieces.ToList());return;}
             var loose=ActivePieces.Where(p=>!p.placed&&!p.held).ToList();
             BoneWorkbenchLayout.Arrange(loose);
             foreach(var p in loose)FitHomeToTray(p);

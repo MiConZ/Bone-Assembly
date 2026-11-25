@@ -57,12 +57,16 @@ namespace BoneAssembly
         public static void ArrangeOnStation(List<BonePiece> pieces, BoneStation station)
         {
             // Measure in the slot frame so tray yaw never changes the resting height.
-            var ordered = pieces;
-            for (int i = 0; i < ordered.Count; i++)
+            for (int i = 0; i < pieces.Count; i++)
             {
-                var piece = ordered[i];
-                var tray = i % 2 == 0 ? station.leftTray : station.rightTray;
-                var slot = tray.Find($"Slot {i / 2 + 1:00}");
+                var piece = pieces[i];
+                var slot = station.SlotFor(piece);
+                if (!slot)
+                {
+                    // Previously authored scenes use numbered slots on alternating trays.
+                    var tray = i % 2 == 0 ? station.leftTray : station.rightTray;
+                    slot = tray.Find($"Slot {i / 2 + 1:00}");
+                }
                 var originalPosition = piece.transform.position;
                 var originalRotation = piece.transform.rotation;
                 piece.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);

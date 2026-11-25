@@ -14,7 +14,8 @@ namespace BoneAssembly
         [Range(.12f,.5f)] public float handSnapDistance = .20f;
         [Header("Seat / ตำแหน่งผู้เล่น (เมตร)")]
         public Vector3 seatedAnchor = new Vector3(0,0,-.15f);
-        [Range(1,3)] public float seatedEyeHeight = 2.2f;
+        [Tooltip("Desktop preview eye height in metres. The headset supplies its own tracked eye height.")]
+        [Range(1,3)] public float seatedEyeHeight = 1.30f;
         [Range(.05f,.3f)] public float holdDistance = .12f;
         [Header("Comfortable interaction")]
         [Range(.3f,4f)] public float magnetSpeed=1.5f;

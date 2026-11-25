@@ -11,8 +11,9 @@ namespace BoneAssembly
         BoneAssemblyGame game;
         Canvas canvas;
         GraphicRaycaster graphics;
-        RectTransform panel;
-        Text heading, detail;
+        [SerializeField] RectTransform panel;
+        [SerializeField] Text heading, detail;
+        [SerializeField] List<BoneUICommand> lessonButtons = new List<BoneUICommand>();
         Font font;
         readonly List<Button> buttons = new List<Button>();
         readonly List<RaycastResult> hits = new List<RaycastResult>();
@@ -34,6 +35,16 @@ namespace BoneAssembly
                 if (t.GetComponent<LabAction>() || t.GetComponent<TextMesh>() || t.name == "Session console")
                     t.gameObject.SetActive(false);
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            if (panel)
+            {
+                canvas = panel.GetComponent<Canvas>();
+                canvas.worldCamera = game.playerCamera;
+                graphics = panel.GetComponent<GraphicRaycaster>();
+                foreach (var action in lessonButtons)
+                    Listen(action.GetComponent<Button>(),action.command);
+                Refresh();
+                return;
+            }
             panel = new GameObject("Lesson console", typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster)).GetComponent<RectTransform>();
             panel.SetParent(transform, false);
             panel.sizeDelta = new Vector2(540, 640);
@@ -82,6 +93,18 @@ namespace BoneAssembly
             var label = Label(rect, "Caption", 6, 0, 228, 50, Mathf.RoundToInt(21 * scale));
             label.alignment = TextAnchor.MiddleCenter;
             label.text = caption;
+            if (!Application.isPlaying)
+            {
+                var action = button.gameObject.AddComponent<BoneUICommand>();
+                action.command = command;
+                lessonButtons.Add(action);
+            }
+            Listen(button,command);
+            buttons.Add(button);
+        }
+
+        void Listen(Button button,string command)
+        {
             button.onClick.AddListener(() => {
                 if (command == "controls") controls = !controls;
                 else
@@ -91,7 +114,6 @@ namespace BoneAssembly
                 }
                 Refresh();
             });
-            buttons.Add(button);
         }
 
         void LateUpdate() => Refresh();
@@ -110,7 +132,12 @@ namespace BoneAssembly
                 page = next;
                 heading.fontSize = Mathf.RoundToInt(34 * scale);
                 detail.fontSize = Mathf.RoundToInt(21 * scale);
-                if (page == 0)
+                foreach (var action in lessonButtons)
+                {
+                    action.gameObject.SetActive(page == 0);
+                    action.GetComponentInChildren<Text>(true).fontSize = Mathf.RoundToInt(21 * scale);
+                }
+                if (page == 0 && lessonButtons.Count == 0)
                 {
                     string[] assignments = { "1  Torso", "2  Arms & hands", "3  Legs & feet", "4  Full body" };
                     for (int i = 0; i < assignments.Length; i++) Action(assignments[i], "assignment:" + i);
@@ -132,7 +159,7 @@ namespace BoneAssembly
                     Action("Board defaults", "board:defaults"); Action("Sound on / off", "sound");
                     if (!game.selectingAssignment) { Action("Recover bones", "recover"); Action("Restart lesson", "reset"); Action("Choose lesson", "lessons"); }
                 }
-                Action(controls ? "Back" : "Controls", "controls");
+                if (!Application.isPlaying || page != 0 || lessonButtons.Count == 0) Action(controls ? "Back" : "Controls", "controls");
             }
             heading.text = controls ? "Controls" : page == 0 ? "Choose a lesson" : page == 2 ? (game.completed ? "Lesson complete" : "Time is up") : game.SessionName;
             if (page == 0) detail.text = "Choose an assignment with a placement guide, or test yourself on a body region.";
