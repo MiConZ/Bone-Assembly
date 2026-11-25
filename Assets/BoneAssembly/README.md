@@ -12,7 +12,7 @@
 
 ## Comfortable VR controls
 
-Play seated or standing from one spot. The blueprint is upright; side trays remain horizontal. Use RECENTER WORKSPACE after changing posture. The left panel adjusts height, distance, and size. Size changes require releasing held bones and return loose pieces to the trays without resetting completed work.
+Use the side console to choose an assignment or test region. Under **Controls**, **Recenter player** moves the rig to the authored seat and keeps the room fixed. Board controls adjust blueprint height, distance, and size. Release held bones before resizing. All lesson bones start on the two trays.
 
 - Grip near a bone: grab at the contact point. Aim and hold Grip: magnetically draw a distant bone toward your hand.
 - Release Grip: drop with gravity and collisions, without submitting or counting a mistake.
@@ -38,7 +38,7 @@ Stop and restart Unity Play Mode after code changes. Quest Link needs the headse
 
 ปรับ flow ตาม mockup PDF ฉบับใหม่ สไลด์ 15–21:
 
-- หน้าเลือก Assignment 1–4 เป็นปุ่มสีแดงเรียงแนวตั้ง ใช้ได้ทั้งเมาส์และเส้นเล็ง VR
+- หน้าเลือก Assignment 1–4 และบททดสอบแต่ละส่วนอยู่บนแผงด้านข้าง ใช้ได้ทั้งเมาส์และเส้นเล็ง VR
 - ค่าเริ่มต้น: Assignment 1 ลำตัว, 2 แขนและมือ, 3 ขาและเท้า, 4 เต็มตัว (สไลด์ไม่ได้กำหนดเนื้อหาของแต่ละ Assignment)
 - เวลาแต่ละรอบ 10:00 นาที นับถอยหลังและหยุดเมื่อจบเกม
 - ใน Assignment เงาเป้าหมายกระพริบ 3 วินาทีแรก แล้วจางลงจนเหลือเงาบางที่วินาที 5

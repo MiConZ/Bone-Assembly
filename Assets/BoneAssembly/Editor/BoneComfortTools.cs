@@ -95,7 +95,7 @@ namespace BoneAssembly.Editor
                     report.AppendLine(side+": "+kept.Count/3+" triangles, "+visual.joints.Length+" animated joints");
                 }finally{UnityEngine.Object.DestroyImmediate(root);}
             }
-            settings.resetLabel="RESTART ASSIGNMENT";settings.recenterLabel="RECENTER WORKSPACE";
+            settings.resetLabel="RESTART ASSIGNMENT";settings.recenterLabel="RECENTER PLAYER";
             settings.seatedInstructions="Grip: grab / magnet | Trigger: submit | A / X: regrip";
             EditorUtility.SetDirty(settings);EditorUtility.SetDirty(mat);AssetDatabase.SaveAssets();
             File.WriteAllText("tmp/hand-setup.txt",report.ToString());

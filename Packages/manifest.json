@@ -46,6 +46,7 @@
     "com.unity.modules.wind": "1.0.0",
     "com.unity.modules.xr": "1.0.0",
     "com.unity.xr.openxr": "1.19.0",
-    "com.unity.xr.management": "4.6.1"
+    "com.unity.xr.management": "4.6.1",
+    "com.tyroonis.xr.linuxopenxr": "file:com.tyroonis.xr.linuxopenxr-0.3.3.tgz"
   }
 }

@@ -157,7 +157,7 @@ MonoBehaviour:
   reviewLabel: REVIEW
   resetLabel: RESTART ASSIGNMENT
   nextLabel: NEXT
-  recenterLabel: RECENTER WORKSPACE
+  recenterLabel: RECENTER PLAYER
   textSizeLabel: TEXT SIZE
   soundLabel: SOUND
   seatedInstructions: 'Grip: grab / magnet | Trigger: submit | A / X: regrip'

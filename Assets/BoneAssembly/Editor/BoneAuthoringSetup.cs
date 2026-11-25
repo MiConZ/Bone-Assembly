@@ -17,40 +17,31 @@ namespace BoneAssembly.Editor
         {
             if(EditorApplication.isPlaying)throw new Exception("Stop Play Mode first.");
             var game=UnityEngine.Object.FindAnyObjectByType<BoneAssemblyGame>();
-            Undo.RegisterFullObjectHierarchyUndo(game.gameObject,"Separate VR feedback and controls");
-            var feedback=game.FindNamed("Feedback");
-            feedback.position=new Vector3(1.65f,1.88f,2.17f);
-            var text=feedback.GetComponent<TextMesh>();text.characterSize=.012f;text.anchor=TextAnchor.MiddleCenter;text.alignment=TextAlignment.Center;
-            game.feedbackColumns=34;
-            text.text=BoneEducation.Wrap(game.message,game.feedbackColumns);
-            var panel=game.FindNamed("VR feedback background");
-            if(!panel){panel=game.Box("VR feedback background",new Vector3(1.65f,1.88f,2.22f),new Vector3(1.1f,.64f,.035f),game.dark,false).transform;panel.SetParent(feedback.parent,true);}
-            foreach(string command in new[]{"seated","text","sound"})
-            {
-                var label=game.FindNamed("Label "+command);if(label)label.GetComponent<TextMesh>().characterSize=.0085f;
-            }
-            for(int i=0;i<5;i++){var label=game.FindNamed("Label stage:"+i);if(label)label.GetComponent<TextMesh>().characterSize=.0075f;}
-            EditorSceneManager.MarkSceneDirty(game.gameObject.scene);EditorSceneManager.SaveScene(game.gameObject.scene);
-            File.WriteAllText("tmp/vr-layout-result.txt","PASS: feedback moved to separate right panel; compact control captions; scene saved.");
+            Undo.RegisterFullObjectHierarchyUndo(game.gameObject,"Prepare workstation anchors");
+            BoneStation.Prepare(game);
+            var legacy=game.FindNamed("World panels - VR");
+            if(legacy) legacy.gameObject.SetActive(false);
+            EditorSceneManager.MarkSceneDirty(game.gameObject.scene);
+            EditorSceneManager.SaveScene(game.gameObject.scene);
         }
 
         public static void VerifyVRPanels()
         {
             var game=UnityEngine.Object.FindAnyObjectByType<BoneAssemblyGame>();
-            if(!EditorApplication.isPlaying)throw new Exception("Play Mode required.");
-            game.BeginAssignment(3);game.Command("seated");Physics.SyncTransforms();
-            var feedback=game.FindNamed("Feedback").GetComponent<Renderer>();
-            foreach(string command in new[]{"seated","text","sound","hint","reset","next"})
-            {
-                var button=game.FindNamed("Button "+command);var collider=button.GetComponent<Collider>();
-                if(feedback.bounds.Intersects(collider.bounds))throw new Exception("Feedback overlaps "+command);
-                var ray=new Ray(game.playerCamera.transform.position,(collider.bounds.center-game.playerCamera.transform.position).normalized);
-                if(!Physics.Raycast(ray,out var hit,4)||hit.collider!=collider)throw new Exception("VR ray blocked for "+command);
-            }
-            bool sound=game.soundEnabled;var soundButton=game.FindNamed("Button sound");
-            if(!game.InteractWithRay(new Ray(soundButton.position-Vector3.forward*.3f,Vector3.forward))||game.soundEnabled==sound)throw new Exception("Trigger command failed.");
-            game.soundEnabled=sound;
-            File.WriteAllText("tmp/vr-panel-verification.txt","PASS: feedback clear of all 6 controls; physics rays reach all 6 colliders; Trigger interaction toggles sound. Physical Quest not tested.");
+            var console=game.Workspace.Console;
+            if(!console.GetComponentInChildren<Canvas>() || console.GetComponentsInChildren<Collider>().Length!=0)
+                throw new Exception("The console must be a collider-free Canvas.");
+            Canvas.ForceUpdateCanvases();
+            var button=console.GetComponentsInChildren<UnityEngine.UI.Button>().First(b=>b.name=="Controls");
+            var center=((RectTransform)button.transform).TransformPoint(((RectTransform)button.transform).rect.center);
+            var ray=new Ray(game.playerCamera.transform.position,center-game.playerCamera.transform.position);
+            var original=game.playerCamera.transform.rotation;
+            game.playerCamera.transform.rotation=Quaternion.LookRotation(ray.direction);
+            console.Point(0,ray,true,out _);
+            game.playerCamera.transform.rotation=original;
+            if(!console.GetComponentsInChildren<UnityEngine.UI.Button>().Any(b=>b.name=="Recenter player"))
+                throw new Exception("Controller ray did not open controls.");
+            File.WriteAllText("tmp/vr-panel-verification.txt","PASS: graphic ray opens collider-free controls.");
         }
         [MenuItem("Bone Assembly/Prepare Editable Scene")]
         public static void Prepare()
@@ -76,6 +67,8 @@ namespace BoneAssembly.Editor
             }
             game.RefreshAssignmentControls();
             Organize(game);
+            BoneStation.Prepare(game);
+            game.FindNamed("World panels - VR").gameObject.SetActive(false);
             if(!game.desktopUI)CreateDesktopUI(game);
             var learning=game.playerCamera.GetComponent<BoneLearningDisplay>();
             if(!learning)learning=game.playerCamera.gameObject.AddComponent<BoneLearningDisplay>();

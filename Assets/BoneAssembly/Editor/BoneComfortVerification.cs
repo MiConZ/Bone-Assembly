@@ -43,10 +43,30 @@ namespace BoneAssembly.Editor
             game.assignmentMode=false;game.practice=true;game.StartStage(4);game.ResetDesktopSeat();
             yield return .3f;
             Check(game.Workspace&&game.Workspace.Board,"Upright workspace initialized");
-            var feedback=game.GetComponentsInChildren<TextMesh>(true).First(t=>t.name=="Feedback");
-            Check(feedback.gameObject.activeInHierarchy&&!string.IsNullOrEmpty(feedback.text),"World placement feedback is visible and populated");
+            var console=game.Workspace.Console;
+            Check(console.GetComponentInChildren<Canvas>() && !console.GetComponentsInChildren<Collider>().Any(),"World canvas has no physics colliders");
             Check(Vector3.Dot(game.Workspace.Board.forward,Vector3.up)>.99f,"Skeleton longitudinal axis points up");
             Check(game.pieces.All(p=>p.Body&&p.GetComponentsInChildren<Collider>().Count(c=>!c.isTrigger)>0),"All pieces have bodies and compound contact colliders");
+            var tray=game.Workspace.Station.leftTray;
+            var authoredPosition=tray.position;
+            var authoredRotation=tray.rotation;
+            var first=game.ActivePieces.First();
+            var localHome=tray.InverseTransformPoint(first.home);
+            tray.SetPositionAndRotation(authoredPosition+new Vector3(.08f,.1f,.07f),Quaternion.Euler(0,18,0)*authoredRotation);
+            game.StartStage(4);
+            Check(Vector3.Distance(first.home,tray.TransformPoint(localHome))<.001f,"Retry follows authored tray position and yaw");
+            first.Teleport(first.home+Vector3.up*.5f,first.homeRotation);
+            game.ResetLooseBones();
+            Check(Vector3.Distance(first.transform.position,first.home)<.001f,"Loose bone recovers to moved tray");
+            tray.SetPositionAndRotation(authoredPosition,authoredRotation);
+            game.StartStage(4);
+            var active=game.ActivePieces.ToArray();
+            Check(active.Length==22 && active.All(b=>b.gameObject.activeInHierarchy),"All full-body pieces are on the trays");
+            var boxes=active.Select(b=>BoneSurfacePlacement.MeshBounds(b.gameObject)).ToArray();
+            for(int i=0;i<boxes.Length;i++)
+                for(int j=i+1;j<boxes.Length;j++)
+                    if(boxes[i].Intersects(boxes[j])) throw new Exception("Overlapping tray slots: "+active[i].label+" / "+active[j].label);
+            report.AppendLine("Full-body spawn bounds are disjoint");
             var p=game.ActivePieces.First(a=>a.IsHead);
             p.Teleport(p.home+Vector3.up*.5f,p.homeRotation);float initial=p.transform.position.y;
             yield return .25f;
@@ -97,8 +117,13 @@ namespace BoneAssembly.Editor
             game.Workspace.Adjust("raise");game.Workspace.Adjust("far");
             Check(Vector3.Distance(p.transform.position,p.target)<.001f,"Placed bones follow board height and distance changes");
             foreach(float eyeHeight in new[]{1.15f,1.75f}){
-                game.playerCamera.transform.position=new Vector3(0,eyeHeight,-.15f);game.playerCamera.transform.rotation=Quaternion.identity;game.Workspace.Recenter();
-                Check(Vector3.Distance(game.playerCamera.transform.position,game.Workspace.Board.position)<2,"Board reachable at eye height "+eyeHeight);
+                var boardPosition=game.Workspace.Board.position;
+                var consolePosition=console.transform.position;
+                var tracked=new Vector3(.3f,eyeHeight,-.2f);
+                game.CalibrateSeatedPose(tracked,Quaternion.Euler(15,35,0));
+                Check(Vector3.Distance(game.rig.TransformPoint(tracked),game.Workspace.Station.playerStart.position+Vector3.up*eyeHeight)<.001f,"Player recentered at tracked height "+eyeHeight);
+                Check(game.Workspace.Board.position==boardPosition && console.transform.position==consolePosition,"Recenter keeps the workstation fixed");
+
             }
             other.SetMotion(BoneMotionState.Held,0);other.Follow(other.transform.position,other.transform.rotation);game.ShowBoneInformation(other);
             var card=game.playerCamera.GetComponent<BoneLearningDisplay>();card.UpdateVisibility(Time.time+20);yield return .1f;

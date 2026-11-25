@@ -29,6 +29,12 @@ namespace BoneAssembly.Editor
         {
             // Never overwrite the user's currently edited scene.
             if(!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())return;
+            if(File.Exists(ScenePath))
+            {
+                EditorSceneManager.OpenScene(ScenePath);
+                BoneAuthoringSetup.FixVRPanels();
+                return;
+            }
             ConfigureXR();
             var scene=EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,NewSceneMode.Single);
             var root=new GameObject("Bone Assembly | Operating Theatre");var game=root.AddComponent<BoneAssemblyGame>();game.BuildRoom();

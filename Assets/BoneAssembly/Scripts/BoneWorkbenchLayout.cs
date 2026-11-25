@@ -54,6 +54,25 @@ namespace BoneAssembly
                 item.localPosition=position;
             }
         }
+        public static void ArrangeOnStation(List<BonePiece> pieces, BoneStation station)
+        {
+            // Measure in the slot frame so tray yaw never changes the resting height.
+            var ordered = pieces;
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                var piece = ordered[i];
+                var tray = i % 2 == 0 ? station.leftTray : station.rightTray;
+                var slot = tray.Find($"Slot {i / 2 + 1:00}");
+                var originalPosition = piece.transform.position;
+                var originalRotation = piece.transform.rotation;
+                piece.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+                var bounds = BoneSurfacePlacement.MeshBounds(piece.gameObject);
+                var bottom = new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
+                piece.homeRotation = slot.rotation;
+                piece.home = slot.position - slot.rotation * bottom;
+                piece.transform.SetPositionAndRotation(originalPosition, originalRotation);
+            }
+        }
         public static void Arrange(List<BonePiece> pieces)
         {
             var items=pieces.Select(p=>{

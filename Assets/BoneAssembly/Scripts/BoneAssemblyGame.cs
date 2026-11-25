@@ -63,27 +63,26 @@ namespace BoneAssembly
             seated=startSeated;
             if (transform.childCount == 0) BuildRoom();
             else Bind();
-            if(assignmentMode)ShowAssignmentMenu();else StartStage(stage);
-            RefreshAssignmentControls();
             Workspace=GetComponent<BoneWorkspace>()??gameObject.AddComponent<BoneWorkspace>();
             Workspace.Initialize(this);
+            if(assignmentMode)ShowAssignmentMenu();else StartStage(stage);
             foreach(var p in pieces)p.InitializePhysics(this);
             rig.GetComponent<LabPlayer>()?.RecenterSeat();
         }
         public void CalibrateSeatedPose(Vector3 trackedPosition,Quaternion trackedRotation)
         {
-            rig.rotation=Quaternion.Euler(0,-trackedRotation.eulerAngles.y,0);
+            var start=Workspace.Station.playerStart;
+            rig.rotation=Quaternion.Euler(0,start.eulerAngles.y-trackedRotation.eulerAngles.y,0);
             var horizontal=rig.rotation*trackedPosition;horizontal.y=0;
-            rig.position=SeatedAnchor-horizontal;
-            Workspace?.Recenter();
+            rig.position=start.position-horizontal;
         }
         public void ResetDesktopSeat()
         {
-            rig.SetPositionAndRotation(settings?settings.seatedAnchor:SeatedAnchor,Quaternion.identity);
-            playerCamera.transform.localPosition=Vector3.up*SeatedEyeHeight;
+            var start=Workspace ? Workspace.Station.playerStart : null;
+            rig.SetPositionAndRotation(start ? start.position : SeatedAnchor,start ? start.rotation : Quaternion.identity);
+            playerCamera.transform.localPosition=Vector3.up*1.45f;
             playerCamera.fieldOfView=88;
             playerCamera.transform.localRotation=Quaternion.identity;
-            Workspace?.Recenter();
         }
         void OnEnable(){if(Application.isPlaying&&transform.childCount>0)Bind();}
 
@@ -294,6 +293,7 @@ namespace BoneAssembly
         }
         public void RefreshAssignmentControls()
         {
+            if(Workspace) return;
             if(!assignmentMenu){var existing=FindNamed("Assignment selection");if(existing)assignmentMenu=existing.gameObject;}
             if(assignmentMenu==null){
                 assignmentMenu=new GameObject("Assignment selection");assignmentMenu.transform.SetParent(transform,false);
@@ -325,7 +325,7 @@ namespace BoneAssembly
             }
             var restart=FindNamed("Label reset");if(restart)restart.GetComponent<TextMesh>().text="RESTART";
             var mode=FindNamed("Label mode");if(mode)mode.GetComponent<TextMesh>().text=settings?settings.modeLabel:"ASSIGNMENT / TEST";
-            var seat=FindNamed("Label seated");if(seat)seat.GetComponent<TextMesh>().text="RECENTER WORKSPACE";
+            var seat=FindNamed("Label seated");if(seat)seat.GetComponent<TextMesh>().text="RECENTER PLAYER";
             var hint=FindNamed("Label hint");if(hint){hint.GetComponent<TextMesh>().text=settings?(completed?settings.reviewLabel:settings.hintLabel):(completed?"REVIEW":"HINT");}
         }
         public void BeginAssignment(int index)
@@ -352,17 +352,19 @@ namespace BoneAssembly
                 assignmentGuide=new Material(ghostMaterial){name="Assignment fading guide"};
                 assignmentGuide.SetFloat("_Surface",1);assignmentGuide.SetFloat("_SrcBlend",(float)UnityEngine.Rendering.BlendMode.SrcAlpha);assignmentGuide.SetFloat("_DstBlend",(float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);assignmentGuide.SetFloat("_ZWrite",0);assignmentGuide.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");assignmentGuide.SetOverrideTag("RenderType","Transparent");assignmentGuide.renderQueue=3000;
             }
-            var active=ActivePieces.OrderBy(_=>random.Next()).ToList();
+            var active=Workspace ? ActivePieces.ToList() : ActivePieces.OrderBy(_=>random.Next()).ToList();
             foreach(var p in pieces) {
                 bool enabled=active.Contains(p);p.gameObject.SetActive(enabled);p.ghost.SetActive(assignmentMode?enabled:!enabled||practice);
                 foreach(var r in p.ghost.GetComponentsInChildren<Renderer>())r.sharedMaterial=assignmentMode?assignmentGuide:ghostMaterial;
                 foreach(var r in p.surfaces)r.sharedMaterial=ivory;
             }
             if(!Workspace)BoneWorkbenchLayout.ResizeTrays(this);
-            BoneWorkbenchLayout.Arrange(active);
+            if(Workspace) BoneWorkbenchLayout.ArrangeOnStation(active,Workspace.Station);
+            else BoneWorkbenchLayout.Arrange(active);
             foreach(var p in active) {
                 p.transform.SetPositionAndRotation(p.home,p.homeRotation);
-                FitHomeToTray(p);p.ResetHome();
+                if(!Workspace) FitHomeToTray(p);
+                p.ResetHome();
                 p.gameObject.SetActive(true);
             }
             message=assignmentMode?"10 MINUTES / Remember the blinking guide before it fades.":practice?"PRACTICE: match each bone to its blueprint.":"TEST: no blueprints. Match position AND orientation.";
@@ -409,6 +411,7 @@ namespace BoneAssembly
         }
         public void RefreshTrayHomes()
         {
+            if(Workspace){BoneWorkbenchLayout.ArrangeOnStation(ActivePieces.ToList(),Workspace.Station);return;}
             var loose=ActivePieces.Where(p=>!p.placed&&!p.held).ToList();
             BoneWorkbenchLayout.Arrange(loose);
             foreach(var p in loose)FitHomeToTray(p);
@@ -465,13 +468,15 @@ namespace BoneAssembly
             if(command.StartsWith("assignment:")){BeginAssignment(int.Parse(command.Substring(11)));return;}
             if(command=="test"){assignmentMode=false;practice=false;StartStage(1);RefreshAssignmentControls();return;}
             if(command=="review"){ReviewPlacedBones();return;}
+            if(command.StartsWith("exam:")){assignmentMode=false;practice=false;StartStage(int.Parse(command.Substring(5)));return;}
             if(command.StartsWith("stage:")){StartStage(int.Parse(command.Substring(6)));return;}
             switch(command){
                 case "reset":StartStage(stage);break;
                 case "next":if(completed){if(assignmentMode)BeginAssignment((assignmentIndex+1)%4);else StartStage((stage+1)%5);}else message="Complete this stage before continuing.";break;
                 case "mode":assignmentMode=!assignmentMode;practice=false;if(assignmentMode)ShowAssignmentMenu();else StartStage(1);RefreshAssignmentControls();break;
                 case "hint":if(completed){ReviewPlacedBones();break;}if(!practice){message="Hints are disabled in exam mode.";break;}var p=ActivePieces.FirstOrDefault(a=>!a.placed&&a.gameObject.activeSelf);if(p!=null){hints++;foreach(var r in p.ghost.GetComponentsInChildren<Renderer>())r.sharedMaterial=success;message="HINT  /  "+p.label+" : match the lit blueprint.";}break;
-                case "seated":Workspace?.Recenter();message="Workspace recentered for your current seated or standing height.";break;
+                case "seated":rig.GetComponent<LabPlayer>().RecenterSeat();break;
+                case "lessons":assignmentMode=true;ShowAssignmentMenu();break;
                 case "text":float oldScale=textScale;textScale=textScale<1.2f?1.35f:1;foreach(var label in GetComponentsInChildren<TextMesh>())label.characterSize*=textScale/oldScale;if(desktopUI)foreach(var label in desktopUI.GetComponentsInChildren<UnityEngine.UI.Text>(true))label.fontSize=Mathf.RoundToInt(label.fontSize*textScale/oldScale);break;
                 case "sound":soundEnabled=!soundEnabled;break;
             }

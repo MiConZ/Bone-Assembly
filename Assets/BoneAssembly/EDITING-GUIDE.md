@@ -7,7 +7,7 @@
 เลือก `Assets/BoneAssembly/Configuration/BoneGameSettings.asset` หรือเลือกรากฉากแล้วกด **Open Game Settings**
 
 - Session: เวลาต่อรอบ วางศีรษะ/มือง่ายแค่ไหน และเริ่มแบบนั่ง
-- Seat: ตำแหน่งที่นั่ง ความสูงสายตา และระยะกระดูกจากมือ หน่วยเป็นเมตร
+- Seat: ระยะกระดูกจากมือ หน่วยเป็นเมตร
 - Learning card: เวลาแสดง (เริ่มต้น 4 วินาที) และตำแหน่ง/ขนาดเริ่มต้นของการ์ดใหม่
 - Bones: มีข้อมูล 22 ชิ้น แก้ชื่อไทย ชื่ออังกฤษ และคำอธิบายได้ **อย่าเปลี่ยน Bone Key** เพราะใช้เชื่อมกับโมเดล
 - UI: ชื่อปุ่มที่เปลี่ยนตามสถานะ เช่น HINT / REVIEW และชื่อ Assignment
@@ -34,7 +34,9 @@
 
 ปุ่มแต่ละอันมี `Bone UI Command` ระบุคำสั่ง เช่น `assignment:0`, `test`, `hint`, `reset`, `next`, `seated`, `text`, `sound` ถ้าต้องการแก้ Caption ในฉากเอง ให้ปิด **Caption From Settings** ก่อน (ปุ่ม Hint เปลี่ยนเป็น Review เมื่อจบเกมจึงใช้ข้อความจาก Settings)
 
-**ป้าย VR:** เปิด `06 UI > World panels - VR` เลือก Text Mesh เพื่อเปลี่ยนฟอนต์ สี หรือขนาด ป้ายคงที่เช่น Title แก้ข้อความได้โดยตรง ป้ายสถานะ/Feedback/ชื่อ Assignment ใช้ค่าจากระบบและ Settings ป้ายปุ่มเป็นลูกของตัวปุ่มแล้ว จึงย้ายพร้อมกันได้ การกด VR ใช้ Collider + LabAction เดิม
+**VR console and reach:** In `03 Workbench > Workstation anchors`, move or rotate **Player Start**, **Blueprint**, **Side Console**, **Left Tray**, or **Right Tray** in Edit Mode. The blue Z arrow on Player Start sets the recenter direction. Select Workstation anchors with Gizmos enabled to see the reach guide and slot centers. Each tray has individual Slot transforms. Move slots along the tray surface and keep room between adjacent bones. Save the scene and check Full Body for the densest layout.
+
+**Hand alignment:** Select `07 Player and VR > Player Rig > Lab Player`. Under Left Hand or Right Hand, adjust Glove Position and Glove Euler while pointing forward, sideways, and down. Use Aim For Glove uses the controller’s measured pointing orientation at the grip position. Turn it off to use grip orientation. Fallback Aim Position and Euler apply when the runtime supplies only grip tracking. Copy tuned values back to the component in Edit Mode to save them.
 
 **การ์ดความรู้:** เปิด `07 Player and VR > Player Rig > Main Camera > Bone learning card` เปิดวัตถุชั่วคราวเพื่อจัดตำแหน่ง/ขนาดและแก้สไตล์ใน Scene View แล้วปิดกลับ ระบบเติมข้อความและเปิดการ์ดเมื่อกดกระดูก ทั้งกระดูกที่ถือและที่วางเสร็จแล้ว
 
@@ -44,4 +46,4 @@
 
 เมนู **Bone Assembly > Prepare Editable Scene** เตรียมฉากเดิมโดยไม่สร้างห้องใหม่ และเติมเฉพาะข้อมูลที่ยังไม่มี มีสำรองไฟล์ฉากก่อนเตรียมที่ `tmp/BoneAssemblyVR-before-authoring.unity` ส่วนฉากหลักที่เตรียมแล้วบันทึกอยู่ใน Assets/Scenes ตามเดิม
 
-ไม่ต้องกด Create Operating Theatre สำหรับแก้ UI เพราะเมนูนั้นสร้างห้องใหม่
+ปรับตำแหน่งอุปกรณ์ด้วย Workstation anchors ใน Scene View แล้วบันทึกฉาก

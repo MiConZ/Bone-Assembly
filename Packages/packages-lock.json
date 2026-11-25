@@ -1,5 +1,13 @@
 {
   "dependencies": {
+    "com.tyroonis.xr.linuxopenxr": {
+      "version": "file:com.tyroonis.xr.linuxopenxr-0.3.3.tgz",
+      "depth": 0,
+      "source": "local-tarball",
+      "dependencies": {
+        "com.unity.xr.management": "4.5.0"
+      }
+    },
     "com.unity.ai.navigation": {
       "version": "2.0.14",
       "depth": 0,
